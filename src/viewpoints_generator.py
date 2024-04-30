@@ -25,7 +25,7 @@ def generate_viewpoints_on_sphere1(radius, center, angle_step_large=45, angle_st
     angle_step_rad_small = np.deg2rad(angle_step_small)
 
     # Generate viewpoints in different regions with different densities
-    for theta in np.arange(0, np.pi + angle_step_rad_small, angle_step_rad_small):
+    for theta in np.arange(angle_step_rad_small, np.pi, angle_step_rad_small):
         if theta <= np.deg2rad(45) or theta > np.deg2rad(135):
             angle_step_rad_phi = angle_step_rad_large
         else:
@@ -40,6 +40,56 @@ def generate_viewpoints_on_sphere1(radius, center, angle_step_large=45, angle_st
             direction_normalized = direction / np.linalg.norm(direction)
 
             # Determine the view category
+            view = classify_viewpoint_by_angle(theta, phi)
+            viewpoints.append((point, direction_normalized, view))
+
+    return viewpoints
+
+
+def generate_viewpoints_on_ellipsoid1(a, b, c, center, angle_step_large=45, angle_step_small=15):
+    """
+    Generates viewpoints and corresponding view directions on the surface of an ellipsoid with varying density.
+
+    Parameters:
+    - a, b, c: Semi-major axis lengths of the ellipsoid along the x, y, and z axes, respectively.
+    - base_center: Center coordinates of the ellipsoid's base.
+    - angle_step_large: The angular interval (in degrees) for generating points in sparse regions.
+    - angle_step_small: The angular interval (in degrees) for generating points in dense regions.
+
+    Returns:
+    - viewpoints: A list of generated viewpoints, view directions, and view categories on the ellipsoid surface.
+                  Each item is a tuple: (point coordinates, view direction, view category).
+    """
+    viewpoints = []
+    # Convert angles to radians
+    angle_step_rad_large = np.deg2rad(angle_step_large)
+    angle_step_rad_small = np.deg2rad(angle_step_small)
+
+
+    # Add special cases for zenith and nadir points
+    # 为顶点和底点设置合适的视点方向,此处的0.000001是一种临时解决方案，可以有效地避免up向量与z_axis（从视点指向中心的向量）完全平行的情况
+    viewpoints.append((center + np.array([0, 0, c]), np.array([0, 0, -1]), 'Topview'))
+    viewpoints.append((center + np.array([0, 0, -c]), np.array([0, 0, 1]), 'Bottomview'))
+
+    # Iterate over zenith angles
+    for theta in np.arange(angle_step_rad_small, np.pi, angle_step_rad_small):
+        if theta <= np.deg2rad(45) or theta > np.deg2rad(135):
+            angle_step_rad_phi = angle_step_rad_large
+        else:
+            angle_step_rad_phi = angle_step_rad_small
+
+        for phi in np.arange(0, 2 * np.pi, angle_step_rad_phi):  # Azimuth angle
+            x = a * np.sin(theta) * np.cos(phi) + center[0]
+            y = b * np.sin(theta) * np.sin(phi) + center[1]
+            z = c * np.cos(theta) + center[2]
+            point = np.array([x, y, z])
+
+            # Calculate view direction: vector pointing from point to base center
+            direction = center - point
+            # Normalize direction vector
+            direction_normalized = direction / np.linalg.norm(direction)
+
+            # Classify the viewpoint based on angle
             view = classify_viewpoint_by_angle(theta, phi)
             viewpoints.append((point, direction_normalized, view))
 
@@ -103,7 +153,7 @@ def count_viewpoints_by_view(viewpoints):
 
 
 
-def filter_viewpoints_by_z(viewpoints, z_min=50):
+def filter_viewpoints_by_z(viewpoints, z_min=100):
     """
     过滤掉z坐标小于指定值的视点。
 
@@ -218,14 +268,13 @@ def filter_viewpoints_by_area(viewpoints, view_stats, area_threshold):
     return filtered_viewpoints
 
 
-def filter_viewpoints_by_name(viewpoints, viewname):
+def filter_viewpoints_by_name(viewpoints, target_view):
     """
-    根据视图的总面积阈值来过滤视点。
+    根据指定的视图名称来过滤视点。
 
     参数:
     - viewpoints: 包含视点、方向和视图分类的列表。每个元素是(point, direction, view)的元组。
-    - view_stats: 包含视图分类的面片数量及面积总和的字典。
-    - area_threshold: 总面积阈值。
+    - target_view: 要保留的视图名称，如'Topview', 'Bottomview', 等。
 
     返回:
     - filtered_viewpoints: 过滤后的视点列表。
@@ -233,7 +282,9 @@ def filter_viewpoints_by_name(viewpoints, viewname):
     filtered_viewpoints = []
     for point, direction, view in viewpoints:
         # 如果该视图的是俯视图，则保留
-        if view == viewname:
+        if view == target_view:
             filtered_viewpoints.append((point, direction, view))
 
     return filtered_viewpoints
+
+

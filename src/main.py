@@ -1,18 +1,23 @@
 import open3d as o3d
 import os
 import numpy as np
+import time
 from uniform_viewpoint_generator import *
 from geometry import *
 from window_visualizer import *
 from model_loader import *
 from partitioner import *
-from postprocess import *
-from dilation import *
+# from dilation import *
 from viewpoints_generator import *
-from ray_triangle_intersection import *
+from ray_casting import *
+from vis_quality import *
+from objective_function import *
 
 #main workflow
 def main():
+    ##################################################
+    ##################################################
+    start_time = time.time()
     # Set the model file path
     model_directory = "D:\PATH_PLANNING\pp01\models"
     model_name = "1upprocessed01.obj"
@@ -30,41 +35,48 @@ def main():
     # Load the model
     # objmesh, wireframe = load_obj_and_create_wireframe(model_path)
     objmesh = load_obj(model_path)
-    # # 移除孤立的三角面片
-    # objmesh = remove_isolated_triangles(objmesh)
+
 
     rotation_angles = [0 , 0, 0]  # x-axis 90 degree
     objmesh = rotate_model(objmesh, rotation_angles)
     # Adjust model position
     objmesh = adjust_model_position(objmesh)
 
+
+
     aabb, obb = get_bbox(objmesh)
     max_dimension,length, width, height = bbox_dimensions(aabb)
     center, base_center = compute_object_center(aabb)
+    print(f"base_center: {base_center} center: {center}")
 
-    #划分物体为立方体区块
-    aabb_cuboids = generate_aabb_grid_base_centered(objmesh, cuboid_size = 41)
-    aabb_cuboids = filter_cuboids_containing_surface(objmesh, aabb_cuboids)
-
-    average_normals = visualize_average_normals(objmesh, aabb_cuboids)
-
-    centers_with_ids = get_cuboids_centers(aabb_cuboids)
-    # 迭代 centers_with_ids 来分别获取中心点和编号
-    for center, idx in centers_with_ids:
-        print(f"Cuboid {idx} center: {center}")
-    # centers, idx = get_cuboids_centers(aabb_cuboids)
-    # print(f"Center: {centers}, id:{idx}")
-
-    cuboid_idx = 3
-    highlight_line_set = highlight_cuboid_frame(aabb_cuboids, cuboid_idx)
-    highlighted_mesh, complement_mesh = highlight_cuboid_vertices(objmesh, aabb_cuboids, cuboid_idx)
-
-    view_stats = analyze_mesh_by_view(highlighted_mesh)
+    # #划分物体为立方体区块
+    # aabb_cuboids = generate_aabb_grid_base_centered(objmesh, cuboid_size = 41)
+    # aabb_cuboids = filter_cuboids_containing_surface(objmesh, aabb_cuboids)
+    #
+    # # average_normals = visualize_average_normals(objmesh, aabb_cuboids)
+    #
+    # centers_with_ids = get_cuboids_centers(aabb_cuboids)
+    # # 迭代 centers_with_ids 来分别获取中心点和编号
+    # for center, idx in centers_with_ids:
+    #     print(f"Cuboid {idx} center: {center}")
+    # # centers, idx = get_cuboids_centers(aabb_cuboids)
+    # # print(f"Center: {centers}, id:{idx}")
+    #
+    # cuboid_idx = 3
+    # highlight_line_set = highlight_cuboid_frame(aabb_cuboids, cuboid_idx)
+    # highlighted_mesh = highlight_cuboid_vertices(objmesh, aabb_cuboids, cuboid_idx)
+    #
+    # view_stats = analyze_mesh_by_view(highlighted_mesh)
 
 
     # Create wireframe after transformations
     wireframe = create_wireframe(objmesh)
     # normals = visualize_mesh_normals(objmesh)
+
+    print("Initialization completed in {:.2f} seconds".format(time.time() - start_time))
+    ################################################
+    ##Uniformlly distributed viewpoints generation##
+    ################################################
 
     # # Generate equally distributed viewpoints on a sphere
     # if max_dimension <= 500:
@@ -97,36 +109,189 @@ def main():
     #     point, direction = viewpoint
     #     print(f"Viewpoint: {point}, Direction: {direction}")
 
-    cuboid_center = get_cuboid_center(aabb_cuboids, cuboid_idx)
-    radius = 500 + length
-    viewpoints = generate_viewpoints_on_sphere1(radius, cuboid_center)
 
+    #############################################
+    ## viewpoints generation based on cuboids  ##
+    #############################################
+    # cuboid_center = get_cuboid_center(aabb_cuboids, cuboid_idx)
+    # radius = 500 + length / 2
+    # viewpoints = generate_viewpoints_on_sphere1(radius, cuboid_center)
+    #
+    # filtered_viewpoints = filter_viewpoints_by_z(viewpoints)
+    # filtered_viewpoints = filter_viewpoints_by_area(filtered_viewpoints, view_stats, area_threshold=50.0)
+    # filtered_viewpoints = filter_viewpoints_by_name(filtered_viewpoints)
+    # arrow_list = visualize_viewpoints_as_arrows(filtered_viewpoints)
+
+
+    # # Print viewpoints and view directions for verification
+    # for viewpoint in viewpoints:
+    #     point, direction, view= viewpoint
+    #     print(f"Viewpoint: {point}, Direction: {direction}, View: {view}")
+    # count_viewpoints_by_view(viewpoints)
+
+    # print("viewpoints generation based on cuboids completed in {:.2f} seconds".format(time.time() - start_time))
+########################################################################################################
+    ############################################
+    #               ray casting               ##
+    ############################################
+    viewpoints = generate_viewpoints_on_ellipsoid1(a = 560 + length / 2, b = 560 + width/ 2, c = 560 + height/ 2,
+                                                       center = center)
     filtered_viewpoints = filter_viewpoints_by_z(viewpoints)
-    filtered_viewpoints = filter_viewpoints_by_area(filtered_viewpoints, view_stats, area_threshold=50.0)
-    # filtered_viewpoints = filter_viewpoints_by_name(filtered_viewpoints, view = 'Frontview')
+    # filtered_viewpoints = filter_viewpoints_by_area(filtered_viewpoints, view_stats, area_threshold=50.0)
+    filtered_viewpoints = filter_viewpoints_by_name(filtered_viewpoints, 'Topview')
+
     arrow_list = visualize_viewpoints_as_arrows(filtered_viewpoints)
 
-
     # Print viewpoints and view directions for verification
-    for viewpoint in viewpoints:
+    for viewpoint in filtered_viewpoints:
         point, direction, view= viewpoint
         print(f"Viewpoint: {point}, Direction: {direction}, View: {view}")
-    count_viewpoints_by_view(viewpoints)
+
+    # Create RaycastingScene
+    scene = o3d.t.geometry.RaycastingScene()
+    objmesh_t = o3d.t.geometry.TriangleMesh.from_legacy(objmesh)
+    scene.add_triangles(objmesh_t )
 
 
-    process_viewpoints(filtered_viewpoints, highlighted_mesh, objmesh)
+    # 检查视点列表是否不为空
+    if filtered_viewpoints:
+        # 提取第一个视点的坐标
+        first_viewpoint_coordinates = filtered_viewpoints[8][0]  # 第一个元素的第一个元组项是坐标
+        # 将坐标转换为NumPy数组（如果还未是数组）
+        eye_center = np.array(first_viewpoint_coordinates)
+        print("Coordinates of the first viewpoint:", eye_center)
+    else:
+        print("No viewpoints generated.")
 
 
-    # Add elements to the visualization window
+    eye_left, eye_right = generate_eye_positions(eye_center, center, displacement =90)
+    rays, ans, cameras = ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene)
+
+    # for camera in cameras:
+    #     vis.add_geometry(camera)
+
+    ####可视化视锥射线，目前最优########
+    rays_viz = visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, center, scene)
+    for line_set in rays_viz:
+        vis.add_geometry(line_set)
+
+    valid_hit_triangle_indices = filter_hits_by_angle_for_three_views(objmesh, rays, ans)
+    # 打印结果，查看每个视锥有效击中的面片数量
+    for idx, hits in enumerate(valid_hit_triangle_indices):
+        print(f"Number of valid hits for view {idx + 1}: {len(hits)}")
+    # 获取每个视锥中不重复的有效击中面片索引
+    unique_valid_hits_per_view = get_unique_valid_hits(valid_hit_triangle_indices)
+    # 打印结果，查看每个视锥的不重复有效击中面片数量
+    for idx, hits in enumerate(unique_valid_hits_per_view):
+        print(f"Number of unique valid hits for view {idx + 1}: {len(hits)}")
+    # 获取三个视锥的面片索引交集
+    hits_intersection = compute_intersection_of_hits(unique_valid_hits_per_view)
+    print("Number of intersecting hits:", len(hits_intersection))
+    # # 计算并打印所选面片的总面积
+    # total_area = calculate_total_area_of_triangles(objmesh, hits_intersection)
+    # print(f"Total area of the selected triangles: {total_area} square units")
+
+    # # # 可视化被击中的面片
+    visualized_mesh = visualize_hit_faces(objmesh, hits_intersection)
+    vis.add_geometry(visualized_mesh)
+
+    line_set3 = create_line_set3(eye_center, eye_left, eye_right)
+    line_set2 = create_line_set2(eye_center, eye_left, eye_right, center)
+    vis.add_geometry(line_set3)
+    vis.add_geometry(line_set2)
 
 
-    # vis.add_geometry(objmesh)
+
+    print("Ray casting completed in {:.2f} seconds".format(time.time() - start_time))
+
+
+
+
+    #############################################
+    ##            Optical-quality              ##
+    #############################################
+
+    angles_list, distance_list = calculate_view_angles_and_distances(eye_center, objmesh, hits_intersection)
+
+
+
+    c = caculate_costfunction(objmesh, angles_list, distance_list, hits_intersection,
+                              a=2, b=3, e=2, f=3)
+
+    print("Calculated value of Objective Function:", c)
+
+
+
+
+
+
+    print("Optical-quality caculation completed in {:.2f} seconds".format(time.time() - start_time))
+
+#################################################################################################################
+
+    # #############################################
+    # ##                 TEST                    ##
+    # #############################################
+    # viewpoints = generate_viewpoints_on_ellipsoid1(a=560 + length / 2, b=560 + width / 2, c=560 + height / 2,
+    #                                                center=center)
+    # filtered_viewpoints = filter_viewpoints_by_z(viewpoints)
+    # # filtered_viewpoints = filter_viewpoints_by_area(filtered_viewpoints, view_stats, area_threshold=50.0)
+    #
+    # arrow_list = visualize_viewpoints_as_arrows(filtered_viewpoints)
+    #
+    # # Create RaycastingScene
+    # scene = o3d.t.geometry.RaycastingScene()
+    # objmesh_t = o3d.t.geometry.TriangleMesh.from_legacy(objmesh)
+    # scene.add_triangles(objmesh_t)
+    #
+    # views = ['Topview', 'Frontview', 'Leftview', 'Backview', 'Rightview']
+    # best_viewpoints = []
+    #
+    # for view in views:
+    #     current_viewpoints = filter_viewpoints_by_name(filtered_viewpoints, view)
+    #     best_score = -np.inf
+    #     best_viewpoint_data = None
+    #     print("Now is ", view)
+    #
+    #     for idx, viewpoint in enumerate(current_viewpoints):
+    #         eye_center = np.array(viewpoint[0])  # 转换视点坐标为NumPy数组
+    #         eye_left, eye_right = generate_eye_positions(eye_center, center, displacement=90)
+    #         rays, ans, cameras = ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene)
+    #
+    #         valid_hit_triangle_indices = filter_hits_by_angle_for_three_views(objmesh, rays, ans)
+    #         unique_valid_hits_per_view = get_unique_valid_hits(valid_hit_triangle_indices)
+    #         hits_intersection = compute_intersection_of_hits(unique_valid_hits_per_view)
+    #
+    #         angles_list, distance_list = calculate_view_angles_and_distances(eye_center, objmesh, hits_intersection)
+    #         c = caculate_costfunction(objmesh, angles_list, distance_list, hits_intersection, a=2, b=3, e=2, f=3)
+    #
+    #         if c > best_score:
+    #             best_score = c
+    #             best_viewpoint_data = (idx, viewpoint[0], viewpoint[1], view, c)
+    #
+    #     if best_viewpoint_data:
+    #         best_viewpoints.append(best_viewpoint_data)
+    #         print(f"Best viewpoint for {view}: Index {best_viewpoint_data[0] + 1}, Score: {best_viewpoint_data[4]}")
+    #
+    #     print("Optical-quality calculation completed in {:.2f} seconds".format(time.time() - start_time))
+    #
+    # # 打印所有视角的最佳视点
+    # for vp in best_viewpoints:
+    #     print(f"Viewpoint {vp[0] + 1}: Position {vp[1]}, Direction {vp[2]}, View {vp[3]}, Score {vp[4]}")
+    #
+    # print("Optical-quality calculation completed in {:.2f} seconds".format(time.time() - start_time))
+
+    #############################################
+    ## Add elements to the visualization window##
+    #############################################
+
+    vis.add_geometry(objmesh)
     vis.add_geometry(wireframe)
-    ##法线可视化
-    vis.add_geometry(average_normals)
+    # ##法线可视化
+    # vis.add_geometry(average_normals)
 
     vis.add_geometry(aabb)
-    vis.add_geometry(obb)
+    # vis.add_geometry(obb)
 
 
 
@@ -137,8 +302,8 @@ def main():
     # for aabb_box in aabb_cuboids:
     #     vis.add_geometry(aabb_box)
 
-    vis.add_geometry(highlight_line_set)
-    vis.add_geometry(highlighted_mesh)
+    # vis.add_geometry(highlight_line_set)
+    # vis.add_geometry(highlighted_mesh)
 
 
     # Set rendering options

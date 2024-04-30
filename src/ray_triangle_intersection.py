@@ -5,23 +5,6 @@ import numpy as np
 
 
 
-def build_bvh_tree(mesh):
-    """
-    使用Open3D构建模型的BVH树。
-
-    参数:
-    - mesh: Open3D TriangleMesh 对象，代表模型。
-
-    返回:
-    - bvh_tree: Open3D BVHTree 对象，代表构建的BVH树。
-    """
-    bvh_tree = o3d.geometry.KDTreeFlann(mesh)
-    return bvh_tree
-
-
-
-
-
 def ray_triangle_intersection(ray_origin, ray_direction, triangle_vertices):
     """
     使用Möller–Trumbore算法检测光线与三角形的相交，并计算交点。
@@ -172,39 +155,6 @@ def count_visible_faces(viewpoint, highlighted_mesh, objmesh):
 
     return count
 
-
-# def count_visible_faces_for_viewpoint(viewpoint, highlighted_mesh, objmesh):
-#     """
-#     计算视点可见的目标区域内的面片个数和面积。
-#
-#     参数:
-#     - viewpoint: 视点，形如 (point coordinates, view direction, view category)。
-#     - highlighted_mesh: 目标区域的mesh。
-#     - objmesh: 整个模型的mesh。
-#
-#     返回:
-#     - count: 可见的面片个数。
-#     - visible_area: 可见的面片总面积。
-#     """
-#     # 解包视点信息
-#     ray_origin, view_direction, _ = viewpoint
-#
-#     count = 0
-#     visible_area = 0.0
-#
-#     # 遍历目标区域内的每个面片
-#     for face in highlighted_mesh.triangles:
-#         # 获取当前面片的顶点坐标
-#         triangle_vertices = np.asarray(face)
-#
-#         # 检查射线与目标区域内的面片是否相交
-#         intersection_point = ray_triangle_intersection(ray_origin, view_direction, triangle_vertices)
-#         if intersection_point is None:
-#             # 如果没有相交点，则面片可见，更新计数和面积
-#             count += 1
-#             visible_area += compute_triangle_area(triangle_vertices)
-#
-#     return count, visible_area
 
 def compute_triangle_area(vertices):
     """

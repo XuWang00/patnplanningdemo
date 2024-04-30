@@ -12,6 +12,17 @@ def load_obj(model_path):
 
     return mesh
 
+def load_obj_t(model_path):
+    mesh = o3d.t.io.read_triangle_mesh(model_path)
+    print("Successfully loaded model.")
+    # Ensure the model is correct (not empty)
+    if mesh.is_empty():
+        raise ValueError("Model is empty. Please check the file path and file integrity.")
+    # Compute vertex normals
+    mesh.compute_vertex_normals()
+
+    return mesh
+
 def create_wireframe(mesh):
     # 提取三角形顶点索引
     triangles = np.asarray(mesh.triangles)

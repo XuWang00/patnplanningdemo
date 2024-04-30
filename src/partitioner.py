@@ -271,9 +271,9 @@ def highlight_cuboid_vertices(mesh, cuboids, idx_to_highlight):
     highlighted_mesh.triangles = o3d.utility.Vector3iVector(np.asarray(mesh.triangles))
     highlighted_mesh.vertex_normals = o3d.utility.Vector3dVector(np.asarray(mesh.vertex_normals))
 
-    complement_mesh.vertices = o3d.utility.Vector3dVector(np.asarray(mesh.vertices))
-    complement_mesh.triangles = o3d.utility.Vector3iVector(np.asarray(mesh.triangles))
-    complement_mesh.vertex_normals = o3d.utility.Vector3dVector(np.asarray(mesh.vertex_normals))
+    # complement_mesh.vertices = o3d.utility.Vector3dVector(np.asarray(mesh.vertices))
+    # complement_mesh.triangles = o3d.utility.Vector3iVector(np.asarray(mesh.triangles))
+    # complement_mesh.vertex_normals = o3d.utility.Vector3dVector(np.asarray(mesh.vertex_normals))
 
     # 需要确保原始网格有顶点颜色数据，如果没有，初始化为白色
     if len(mesh.vertex_colors) == 0:
@@ -288,10 +288,10 @@ def highlight_cuboid_vertices(mesh, cuboids, idx_to_highlight):
         if (np.asarray(vertex) >= target_cuboid.get_min_bound()).all() and \
                 (np.asarray(vertex) <= target_cuboid.get_max_bound()).all():
             highlighted_mesh.vertex_colors[i] = [1, 0, 0]  # 红色
-        else:
-            complement_mesh.vertex_colors[i] = [0, 0, 1]
+        # else:
+        #     complement_mesh.vertex_colors[i] = [0, 0, 1]
 
-    return highlighted_mesh, complement_mesh
+    return highlighted_mesh
 
 
 def get_cuboid_center(aabb_cuboids, idx):

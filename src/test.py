@@ -1,243 +1,203 @@
-def highlight_cuboid_frame(cuboids, index):
-    """
-    创建并返回指定立方体的红色线框模型。
-
-    参数:
-    - cuboids: 一系列 AxisAlignedBoundingBox 对象的列表。
-    - index: 要高亮显示的立方体的索引。
-
-    返回:
-    - line_set: 表示高亮立方体边框的线集对象。
-    """
-    # 获取指定立方体的AABB
-    cuboid = cuboids[index]
-
-    # 计算立方体的8个顶点
-    points = []
-    for i in [-1, 1]:
-        for j in [-1, 1]:
-            for k in [-1, 1]:
-                point = cuboid.get_center() + np.array([i, j, k]) * (cuboid.get_extent() / 2)
-                points.append(point)
-    points = np.array(points)
-
-    # 定义立方体的12条边
-    lines = [[0,1], [1,3], [3,2], [2,0],
-             [4,5], [5,7], [7,6], [6,4],
-             [0,4], [1,5], [3,7], [2,6]]
-
-    # 创建LineSet对象
-    line_set = o3d.geometry.LineSet(
-        points=o3d.utility.Vector3dVector(points),
-        lines=o3d.utility.Vector2iVector(lines),
-    )
-
-    # 设置线框颜色为红色
-    colors = [[1, 0, 0] for i in range(len(lines))]  # 红色
-    line_set.colors = o3d.utility.Vector3dVector(colors)
-
-    return line_set
-
-
-import numpy as np
+# import necessary libs
 import open3d as o3d
-
-def is_line_of_sight_blocked(mesh, viewpoint, target_centroid):
-    """
-    检查从视点到目标三角面片中心的视线是否被遮挡。
-
-    参数:
-    - mesh: Open3D TriangleMesh 对象。
-    - viewpoint: 视点的坐标。
-    - target_centroid: 目标三角面片的质心坐标。
-
-    返回:
-    - blocked: 布尔值，如果视线被遮挡则为True，否则为False。
-    """
-    # 计算从视点到目标质心的方向向量
-    direction = target_centroid - viewpoint
-    direction /= np.linalg.norm(direction)  # 归一化方向向量
-
-    # 创建光线
-    ray_origins = np.array([viewpoint])
-    ray_directions = np.array([direction])
-
-    # 进行光线-网格相交测试
-    mesh_rtree = o3d.geometry.RayMeshIntersection(mesh)
-    hits = mesh_rtree.query_ray_intersection(ray_origins, ray_directions)
-
-    # 如果有相交且相交点不是目标质心，则认为视线被遮挡
-    blocked = False
-    for hit in hits:
-        hit_point = hit[0]
-        distance_to_hit = np.linalg.norm(hit_point - viewpoint)
-        distance_to_target = np.linalg.norm(target_centroid - viewpoint)
-        if distance_to_hit < distance_to_target:
-            blocked = True
-            break
-
-    return blocked
-
-# 示例使用
-mesh = o3d.io.read_triangle_mesh("path_to_your_mesh.obj")
-viewpoint = np.array([x, y, z])  # 视点坐标
-target_centroid = np.array([tx, ty, tz])  # 目标三角面片质心坐标
-
-blocked = is_line_of_sight_blocked(mesh, viewpoint, target_centroid)
-if blocked:
-    print("Line of sight is blocked.")
-else:
-    print("Line of sight is clear.")
-
-
-from typing import Union, Tuple
 import numpy as np
+# import point_cloud_viewer
+import copy
 
-def ray_triangle_intersection(
-    vertices: np.ndarray,
-    ray_origin: np.ndarray,
-    ray_direction: np.ndarray,
-    culling: bool = False,
-    epsilon: float = 1e-6,
-) -> Union[bool, Tuple[float, float, float]]:
-    """
-    实现Möller-Trumbore射线-三角形相交算法。
 
-    参数:
-    vertices : np.ndarray
-        一个2D数组，包含三角形三个顶点的x, y, z坐标。
-    ray_origin : np.ndarray
-        射线的起点坐标。
-    ray_direction : np.ndarray
-        射线的方向向量。
-    culling : bool, optional
-        如果为True，忽略从三角形背面射入的射线。默认为False。
-    epsilon : float, optional
-        用于处理数值计算中的容差阈值，默认值为1e-6。
+# main function
+def main():
+    ############################################
+    ############ 3D visulization window
+    ############################################
 
-    返回值:
-    如果射线与三角形不相交，返回False。否则，返回距离t和重心坐标u, v的元组。
+    # 创建可视化窗口并添加模型
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    # 在窗口中显示坐标轴
+    coord_axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=50, origin=[0, 0, 0])
+    vis.add_geometry(coord_axes)
 
-    """
+    ############################################
+    ############ object to be 3D inspected
+    ############################################
 
-    # 提取三角形的三个顶点
-    vertex_0 = vertices[0]
-    vertex_1 = vertices[1]
-    vertex_2 = vertices[2]
+    # OBJ file path
+    obj_file_path = "D:\\pathplanning\\pathplanningcodezhan\\1.obj"
+    model = o3d.io.read_triangle_mesh(obj_file_path)
+    current_center = model.get_center()
+    # translation target
+    target_position = [60, 0, 60]
 
-    # 计算三角形两边的向量
-    edge_1 = vertex_1 - vertex_0
-    edge_2 = vertex_2 - vertex_0
+    # calculation of vector
+    translation_vector = np.array(target_position) - np.array(current_center)
+    # intermediate check
+    # print("translation vector is:",translation_vector)
 
-    # 计算射线方向向量和edge_2的外积
-    p_vec = np.cross(ray_direction, edge_2)
+    # Tranlating
+    model.translate(translation_vector)
+    # scaling
+    scale_factor = 0.1
+    model.scale(scale_factor, center=model.get_center())
+    # orientation
+    model_copy = copy.deepcopy(model)
+    R = model_copy.get_rotation_matrix_from_xyz((-np.pi / 2, 0, 0))
+    model_copy.rotate(R, center=(target_position))
 
-    # 计算行列式，判断射线与三角形平面的关系
-    determinant = np.dot(p_vec, edge_1)
+    # calculate the normals
+    model.compute_vertex_normals()
+    model_copy.compute_vertex_normals()
 
-    # 如果启用了剔除背面三角形的选项
-    if culling:
-        # 行列式小于等于0表示射线与三角形的法线同向或平行，即不相交
-        if determinant < epsilon:
-            return False
+    # add the obeject in 3D scene
+    # vis.add_geometry(model)
+    vis.add_geometry(model_copy)
 
-        # 计算从射线起点到三角形第一个顶点的向量
-        t_vec = ray_origin - vertex_0
-        # 计算重心坐标u
-        u_ = np.dot(p_vec, t_vec)
-        if u_ < 0.0 or u_ > determinant:
-            return False
+    ############################################
+    ############ plot a circular trajectory
+    ############################################
 
-        # 计算t_vec和edge_1的外积
-        q_vec = np.cross(t_vec, edge_1)
-        # 计算重心坐标v
-        v_ = np.dot(q_vec, ray_direction)
-        if v_ < 0.0 or (u_ + v_) > determinant:
-            return False
+    # XOZ plane circular trajectory
+    radius = 50.0  # radius
+    num_points = 100  # point on the circle
+    theta = np.linspace(0, 2 * np.pi, num_points)  # angle
+    x = radius * np.cos(theta)
+    y = np.zeros_like(x)
+    z = radius * np.sin(theta)
 
-        # 计算交点到射线起点的距离t，并调整u和v的值
-        inv_determinant = 1.0 / determinant
-        t = np.dot(q_vec, edge_2) * inv_determinant
-        u = u_ * inv_determinant
-        v = v_ * inv_determinant
+    # create a point cloud
+    cloud = o3d.geometry.PointCloud()
+    cloud.scale(500.0, center=cloud.get_center())
+    points = np.column_stack((x, y, z)) + [0, 0, 0]
+    cloud.points = o3d.utility.Vector3dVector(points)
 
-        return t, u, v
+    center_trajectory = model.get_center()
+    print("tra", center_trajectory)
 
-    # 如果不剔除背面三角形
+    cloud.translate(center_trajectory)
+    points_new = np.column_stack((x, y, z))
+    # add the point cloud
+    vis.add_geometry(cloud)
+
+    ############################################
+    ############ import 5M 3D model
+    ############################################
+
+    obj_file_path_5m = "D:\\pathplanning\\pathplanningcodezhan\\5m.obj"
+    model_5m = o3d.io.read_triangle_mesh(obj_file_path_5m)
+    current_center_5m = model_5m.get_center()
+    # translation
+    target_position_5m = points[20]
+    translation_vector_5m = np.array(target_position_5m) - np.array(current_center_5m)
+    model_5m.translate(translation_vector_5m)
+
+    ## orientation 5m, calculating the rotation matrix
+    v2 = [1, 0, 0]
+    # v1 = np.array(model_5m.get_center()) - np.array(model.get_center())
+    v1 = np.array(model_5m.get_center()) - np.array(model.get_center())
+
+    unit_v1 = v1 / np.linalg.norm(v1)
+    unit_v2 = v2 / np.linalg.norm(v2)
+
+    rotation_axis = np.cross(unit_v2, unit_v1)
+
+    cosine_theta = np.dot(unit_v2, unit_v1)
+    sine_theta = np.linalg.norm(rotation_axis)
+    rotation_angle = np.arctan2(sine_theta, cosine_theta)
+
+    if rotation_angle != 0:
+        rotation_matrix = np.array([
+            [cosine_theta + (1 - cosine_theta) * rotation_axis[0] ** 2,
+             (1 - cosine_theta) * rotation_axis[0] * rotation_axis[1] - rotation_axis[2] * np.sin(rotation_angle),
+             (1 - cosine_theta) * rotation_axis[0] * rotation_axis[2] + rotation_axis[1] * np.sin(rotation_angle)],
+            [(1 - cosine_theta) * rotation_axis[1] * rotation_axis[0] + rotation_axis[2] * np.sin(rotation_angle),
+             cosine_theta + (1 - cosine_theta) * rotation_axis[1] ** 2,
+             (1 - cosine_theta) * rotation_axis[1] * rotation_axis[2] - rotation_axis[0] * np.sin(rotation_angle)],
+            [(1 - cosine_theta) * rotation_axis[2] * rotation_axis[0] - rotation_axis[1] * np.sin(rotation_angle),
+             (1 - cosine_theta) * rotation_axis[2] * rotation_axis[1] + rotation_axis[0] * np.sin(rotation_angle),
+             cosine_theta + (1 - cosine_theta) * rotation_axis[2] ** 2]
+        ])
     else:
-        # 行列式接近0表示射线与三角形平行，不相交
-        if np.abs(determinant) < epsilon:
-            return False
 
-        inv_determinant = 1.0 / determinant
+        rotation_matrix = np.identity(3)
 
-        t_vec = ray_origin - vertex_0
-        # 计算重心坐标u
-        u = np.dot(p_vec, t_vec) * inv_determinant
-        if u < 0.0 or u > 1.0:
-            return False
+    # print("Translation matrix：")
+    # print(rotation_matrix)
+    model_5m.rotate(rotation_matrix, center=(model_5m.get_center()))
+    scale_factor = 0.06  #
 
-        q_vec = np.cross(t_vec, edge_1)
-        # 计算重心坐标v
-        v = np.dot(q_vec, ray_direction) * inv_determinant
-        if v < 0.0 or (u + v) > 1.0:
-            return False
+    model_5m.scale(scale_factor, center=model_5m.get_center())
+    model_5m.compute_vertex_normals()
+    vis.add_geometry(model_5m)
 
-        # 计算交点到射线起点的距离t
-        t = np.dot(q_vec, edge_2) * inv_determinant
-        # 如果t小于epsilon，表示交点在射线起点之前，因此不相交
-        if t < epsilon:
-            return False
-        return t, u, v
+    ############################################
+    ############ ray casting related
+    ############################################
+    scene = o3d.t.geometry.RaycastingScene()
+    mesh_scene = o3d.t.io.read_triangle_mesh(obj_file_path)
+    # translate
+    mesh_scene.translate(translation_vector)
+    # rotate
+    mesh_scene.rotate(R, center=target_position)
+    mesh_scene.scale(0.1, center=mesh_scene.get_center())
+    # vis.add_geometry(mesh_scene.to_legacy())
+
+    mesh_id = scene.add_triangles(mesh_scene)
+
+    # here need to be extended, something to do with the parameters of 5M scanner, now I am waiting for it
+    rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
+        fov_deg=90,
+        center=[10, 0, 40],
+        eye=[2, 3, 0],
+        up=[0, 1, 0],
+        width_px=640,
+        height_px=480,
+    )
+    ans = scene.cast_rays(rays)
+    hit = ans['t_hit'].isfinite()
+    points = rays[hit][:, :3] + rays[hit][:, 3:] * ans['t_hit'][hit].reshape((-1, 1))
+    # pcd = o3d.t.geometry.PointCloud(points)
+
+    # color the point cloud
+    num_points = points.shape[0]
+    colors = np.zeros((num_points, 3))
+    colors[:, 2] = 1  # give all the points blue
+
+    tensor_colors = o3d.core.Tensor(colors, dtype=o3d.core.Dtype.Float32)
+
+    # color
+    pcd = o3d.t.geometry.PointCloud(points)
+    pcd.point['colors'] = tensor_colors
+
+    #   tensor claas transformation to a normal one
+    pcd = pcd.to_legacy()
+    # pcd.points = o3d.utility.Vector3dVector(points)
+    vis.add_geometry(pcd)
+
+    vis.run()
+    vis.destroy_window()
 
 
-def count_visible_faces_for_viewpoint(viewpoint, highlighted_mesh, objmesh):
-    """
-    计算视点可见的目标区域内的面片个数和面积。
+# 3D scanner 3D model
 
-    参数:
-    - viewpoint: 视点，形如 (point coordinates, view direction, view category)。
-    - highlighted_mesh: 目标区域的mesh。
-    - objmesh: 整个模型的mesh。
 
-    返回:
-    - count: 可见的面片个数。
-    - visible_area: 可见的面片总面积。
-    """
-    # 解包视点信息
-    ray_origin, view_direction, _ = viewpoint
+############################################
+############ point cloud saving
+############################################
 
-    count = 0
-    visible_area = 0.0
 
-    # 遍历目标区域内的每个面片
-    for face in highlighted_mesh.triangles:
-        # 获取当前面片的顶点坐标
-        triangle_vertices = np.asarray(face)
+############################################
+############ point cloud visulization
+############################################
 
-        # 检查射线与目标区域内的面片是否相交
-        intersection_point = ray_triangle_intersection(ray_origin, view_direction, triangle_vertices)
-        if intersection_point is None:
-            # 如果没有相交点，则面片可见，更新计数和面积
-            count += 1
-            visible_area += compute_triangle_area(triangle_vertices)
 
-    return count, visible_area
+############################################
+############
+############################################
 
-def compute_triangle_area(vertices):
-    """
-    计算三角形的面积。
 
-    参数:
-    - vertices: 三角形的顶点坐标。
+############################################
+############
+############################################
 
-    返回:
-    - area: 三角形的面积。
-    """
-    # 使用海伦公式计算三角形面积
-    a = np.linalg.norm(vertices[0] - vertices[1])
-    b = np.linalg.norm(vertices[1] - vertices[2])
-    c = np.linalg.norm(vertices[2] - vertices[0])
-    s = (a + b + c) / 2
-    area = np.sqrt(s * (s - a) * (s - b) * (s - c))
-    return area
+if __name__ == "__main__":
+    main()

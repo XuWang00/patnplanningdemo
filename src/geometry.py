@@ -120,3 +120,77 @@ def generate_ray(theta, phi, length=1000):
     line_set.colors = o3d.utility.Vector3dVector(colors)
 
     return line_set
+
+
+
+
+def create_line_set3(eye_center, eye_left, eye_right):
+    """
+    Creates a LineSet object in Open3D to visualize lines connecting the given three points:
+    eye_center, eye_left, and eye_right.
+
+    Parameters:
+    - eye_center: array-like, the coordinates of the eye center.
+    - eye_left: array-like, the coordinates of the left eye position.
+    - eye_right: array-like, the coordinates of the right eye position.
+
+    Returns:
+    - o3d.geometry.LineSet: An Open3D LineSet object that visualizes the lines.
+    """
+    # Create an array of points
+    points = np.array([eye_left, eye_center, eye_right])
+
+    # Define the lines based on the indices of the points array
+    # Connect eye_left to eye_center, and eye_center to eye_right
+    lines = [[0, 1], [1, 2]]  # Indices in the points array
+
+    # Create a LineSet object from Open3D
+    line_set = o3d.geometry.LineSet()
+
+    # Set the points
+    line_set.points = o3d.utility.Vector3dVector(points)
+
+    # Set the lines
+    line_set.lines = o3d.utility.Vector2iVector(lines)
+
+    # Optionally, set colors for each line
+    colors = [[1, 1, 0], [1, 1, 0]]
+    line_set.colors = o3d.utility.Vector3dVector(colors)
+
+    return line_set
+
+
+def create_line_set2(eye_center, eye_left, eye_right, center):
+    """
+    Creates a LineSet object in Open3D to visualize lines connecting the given three points:
+    eye_center, eye_left, and eye_right.
+
+    Parameters:
+    - eye_center: array-like, the coordinates of the eye center.
+    - eye_left: array-like, the coordinates of the left eye position.
+    - eye_right: array-like, the coordinates of the right eye position.
+
+    Returns:
+    - o3d.geometry.LineSet: An Open3D LineSet object that visualizes the lines.
+    """
+    # Create an array of points
+    points = np.array([eye_center, eye_left, eye_right, center])
+
+    # Define the lines based on the indices of the points array
+    # Connect eye_left to eye_center, and eye_center to eye_right
+    lines = [[0, 3], [1, 3], [2, 3]]  # Indices in the points array
+
+    # Create a LineSet object from Open3D
+    line_set = o3d.geometry.LineSet()
+
+    # Set the points
+    line_set.points = o3d.utility.Vector3dVector(points)
+
+    # Set the lines
+    line_set.lines = o3d.utility.Vector2iVector(lines)
+
+    # Optionally, set colors for each line
+    colors = [[1, 1, 0],[1, 1, 0],[1, 1, 0]]
+    line_set.colors = o3d.utility.Vector3dVector(colors)
+
+    return line_set
