@@ -43,14 +43,14 @@ def normalize_and_sum_distances(mesh, distance_list):
         v1, v2, v3 = vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
         area = 0.5 * np.linalg.norm(np.cross(v2 - v1, v3 - v1))
         # 距离调整
-        adjusted_distance = distance - 560
-        # 归一化调整距离 (0mm -> 1, 20mm -> 0)
+        adjusted_distance = distance - 480
+        # 归一化调整距离 (0mm -> 1, 35mm -> 0)
         if adjusted_distance < 0:
             normalized_distance = 1.0
-        elif adjusted_distance > 20:
+        elif adjusted_distance > 35:
             normalized_distance = 0.0
         else:
-            normalized_distance = 1 - (adjusted_distance / 20.0)
+            normalized_distance = 1 - (adjusted_distance / 35.0)
         # 加权求和
         distance_weighted_sum += normalized_distance * area
 
@@ -103,7 +103,7 @@ def calculate_value_c(a, b, e, f, mesh, angle_weighted_sum, distance_weighted_su
     return C
 
 
-def caculate_costfunction(mesh, angles_list, distance_list, hit_triangle_indices, a, b, e, f):
+def calculate_costfunction(mesh, angles_list, distance_list, hit_triangle_indices, a, b, e, f):
 
     angle_weighted_sum = normalize_and_sum_angles(mesh, angles_list)
     distance_weighted_sum = normalize_and_sum_distances(mesh, distance_list)

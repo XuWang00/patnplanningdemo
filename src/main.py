@@ -12,14 +12,18 @@ from viewpoints_generator import *
 from ray_casting import *
 from vis_quality import *
 from objective_function import *
+from diagram import *
+from log import *
 
 #main workflow
 def main():
     ##################################################
+    #####             Initialization           #######
     ##################################################
+    logger = setup_logging()
     start_time = time.time()
     # Set the model file path
-    model_directory = "D:\PATH_PLANNING\pp01\models"
+    model_directory = "D:\\PATH_PLANNING\\pp01\\models"
     model_name = "1upprocessed01.obj"
     model_path = os.path.join(model_directory, model_name)
 
@@ -130,15 +134,15 @@ def main():
     # count_viewpoints_by_view(viewpoints)
 
     # print("viewpoints generation based on cuboids completed in {:.2f} seconds".format(time.time() - start_time))
-########################################################################################################
+#######################################################################################################
     ############################################
     #               ray casting               ##
     ############################################
-    viewpoints = generate_viewpoints_on_ellipsoid1(a = 560 + length / 2, b = 560 + width/ 2, c = 560 + height/ 2,
+    viewpoints = generate_viewpoints_on_ellipsoid1(a = 480 + length / 2, b = 480 + width/ 2, c = 480 + height/ 2,
                                                        center = center)
-    filtered_viewpoints = filter_viewpoints_by_z(viewpoints)
+    filtered_viewpoints = filter_viewpoints_by_z(viewpoints, z_min=100)
     # filtered_viewpoints = filter_viewpoints_by_area(filtered_viewpoints, view_stats, area_threshold=50.0)
-    filtered_viewpoints = filter_viewpoints_by_name(filtered_viewpoints, 'Topview')
+    # filtered_viewpoints = filter_viewpoints_by_name(filtered_viewpoints, 'Topview')
 
     arrow_list = visualize_viewpoints_as_arrows(filtered_viewpoints)
 
@@ -156,7 +160,7 @@ def main():
     # 检查视点列表是否不为空
     if filtered_viewpoints:
         # 提取第一个视点的坐标
-        first_viewpoint_coordinates = filtered_viewpoints[8][0]  # 第一个元素的第一个元组项是坐标
+        first_viewpoint_coordinates = filtered_viewpoints[0][0]  # 第一个元素的第一个元组项是坐标
         # 将坐标转换为NumPy数组（如果还未是数组）
         eye_center = np.array(first_viewpoint_coordinates)
         print("Coordinates of the first viewpoint:", eye_center)
@@ -164,14 +168,12 @@ def main():
         print("No viewpoints generated.")
 
 
-    eye_left, eye_right = generate_eye_positions(eye_center, center, displacement =90)
-    rays, ans, cameras = ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene)
+    eye_left, eye_right, apex = generate_eye_positions(eye_center, center, displacement =230)
+    rays, ans = ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, apex, scene)
 
-    # for camera in cameras:
-    #     vis.add_geometry(camera)
 
-    ####可视化视锥射线，目前最优########
-    rays_viz = visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, center, scene)
+    ####可视化视锥射线，目前最优解决方案########
+    rays_viz = visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, apex, scene)
     for line_set in rays_viz:
         vis.add_geometry(line_set)
 
@@ -196,13 +198,16 @@ def main():
     vis.add_geometry(visualized_mesh)
 
     line_set3 = create_line_set3(eye_center, eye_left, eye_right)
-    line_set2 = create_line_set2(eye_center, eye_left, eye_right, center)
+    line_set2 = create_line_set2(eye_center, eye_left, eye_right, apex)
     vis.add_geometry(line_set3)
     vis.add_geometry(line_set2)
 
+    coverage_ratio = calculate_coverage_ratio(hits_intersection, objmesh)
+    # print("Number of objmesh.triangles:", len(objmesh.triangles))
+    # coverage_ratio = len(hits_intersection) / len(objmesh.triangles)
+    logger.info(f"Current coverage ratio: {coverage_ratio:.2%}")
 
-
-    print("Ray casting completed in {:.2f} seconds".format(time.time() - start_time))
+    logger.info("Ray casting completed in {:.2f} seconds".format(time.time() - start_time))
 
 
 
@@ -211,11 +216,12 @@ def main():
     ##            Optical-quality              ##
     #############################################
 
+    #这里需要修改，最好是以两个camera计算而不是以eye_center计算
     angles_list, distance_list = calculate_view_angles_and_distances(eye_center, objmesh, hits_intersection)
 
 
 
-    c = caculate_costfunction(objmesh, angles_list, distance_list, hits_intersection,
+    c = calculate_costfunction(objmesh, angles_list, distance_list, hits_intersection,
                               a=2, b=3, e=2, f=3)
 
     print("Calculated value of Objective Function:", c)
@@ -229,12 +235,12 @@ def main():
 
 #################################################################################################################
 
-    # #############################################
-    # ##                 TEST                    ##
-    # #############################################
+    #############################################
+    ##          TEST  Viewposition             ##
+    #############################################
     # viewpoints = generate_viewpoints_on_ellipsoid1(a=560 + length / 2, b=560 + width / 2, c=560 + height / 2,
     #                                                center=center)
-    # filtered_viewpoints = filter_viewpoints_by_z(viewpoints)
+    # filtered_viewpoints = filter_viewpoints_by_z(viewpoints, z_min=100)
     # # filtered_viewpoints = filter_viewpoints_by_area(filtered_viewpoints, view_stats, area_threshold=50.0)
     #
     # arrow_list = visualize_viewpoints_as_arrows(filtered_viewpoints)
@@ -251,7 +257,7 @@ def main():
     #     current_viewpoints = filter_viewpoints_by_name(filtered_viewpoints, view)
     #     best_score = -np.inf
     #     best_viewpoint_data = None
-    #     print("Now is ", view)
+    #     print("Now is", view)
     #
     #     for idx, viewpoint in enumerate(current_viewpoints):
     #         eye_center = np.array(viewpoint[0])  # 转换视点坐标为NumPy数组
@@ -263,7 +269,7 @@ def main():
     #         hits_intersection = compute_intersection_of_hits(unique_valid_hits_per_view)
     #
     #         angles_list, distance_list = calculate_view_angles_and_distances(eye_center, objmesh, hits_intersection)
-    #         c = caculate_costfunction(objmesh, angles_list, distance_list, hits_intersection, a=2, b=3, e=2, f=3)
+    #         c = calculate_costfunction(objmesh, angles_list, distance_list, hits_intersection, a=2, b=3, e=2, f=3)
     #
     #         if c > best_score:
     #             best_score = c
@@ -280,12 +286,67 @@ def main():
     #     print(f"Viewpoint {vp[0] + 1}: Position {vp[1]}, Direction {vp[2]}, View {vp[3]}, Score {vp[4]}")
     #
     # print("Optical-quality calculation completed in {:.2f} seconds".format(time.time() - start_time))
+    #
+
+    # #############################################
+    # ##          TEST  All Viewpoints           ##
+    # #############################################
+    # viewpoints = generate_viewpoints_on_longitude_line(a=480 + length / 2, b=480 + width / 2, c=480 + height / 2,
+    #                                                center=center)
+    # filtered_viewpoints = filter_viewpoints_by_z(viewpoints, z_min=0)
+    #
+    # arrow_list = visualize_viewpoints_as_arrows(filtered_viewpoints)
+    #
+    # # Create RaycastingScene
+    # scene = o3d.t.geometry.RaycastingScene()
+    # objmesh_t = o3d.t.geometry.TriangleMesh.from_legacy(objmesh)
+    # scene.add_triangles(objmesh_t)
+    #
+    # viewpoint_details = []  # 用于存储每个视点的详细信息
+    #
+    # # 检查视点列表是否不为空
+    # if filtered_viewpoints:
+    #     for idx, viewpoint in enumerate(filtered_viewpoints):
+    #         eye_center = np.array(viewpoint[0])  # 转换视点坐标为NumPy数组
+    #         eye_left, eye_right, apex = generate_eye_positions(eye_center, center, displacement=230)
+    #         rays, ans, cameras = ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, apex, scene)
+    #
+    #         valid_hit_triangle_indices = filter_hits_by_angle_for_three_views(objmesh, rays, ans)
+    #         unique_valid_hits_per_view = get_unique_valid_hits(valid_hit_triangle_indices)
+    #         hits_intersection = compute_intersection_of_hits(unique_valid_hits_per_view)
+    #
+    #         angles_list, distance_list = calculate_view_angles_and_distances(eye_center, objmesh, hits_intersection)
+    #         c = calculate_costfunction(objmesh, angles_list, distance_list, hits_intersection, a=0, b=5, e=2, f=0)
+    #
+    #         # 存储视点详细信息
+    #         viewpoint_details.append({
+    #             "index": idx,
+    #             "position": viewpoint[0],
+    #             "direction": viewpoint[1],
+    #             "view": viewpoint[2],
+    #             "score": c
+    #         })
+    #
+    #         print(f"Processed viewpoint {idx + 1}: Score {c}")
+    #
+    # else:
+    #     print("No viewpoints generated.")
+    #
+    # # 打印所有视点的详细信息
+    # for vp in viewpoint_details:
+    #     print(
+    #         f"Viewpoint {vp['index'] + 1}: Position {vp['position']}, Direction {vp['direction']}, View {vp['view']}, Score {vp['score']}")
+    #
+    # # 调用函数，绘制图表
+    # plot_viewpoint_scores(viewpoint_details)
+    #
+    # print("Optical-quality calculation completed in {:.2f} seconds".format(time.time() - start_time))
 
     #############################################
     ## Add elements to the visualization window##
     #############################################
 
-    vis.add_geometry(objmesh)
+    # vis.add_geometry(objmesh)
     vis.add_geometry(wireframe)
     # ##法线可视化
     # vis.add_geometry(average_normals)

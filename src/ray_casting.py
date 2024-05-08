@@ -226,55 +226,77 @@ def compute_plane_normal(p1, p2, p3):
     return normal_normalized
 
 def ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene):
-    width_px = 5000
-    height_px = 5000
-    fov_deg = 60
+    width_px = 4000
+    height_px = 3036
+    default_fov_deg = 33.4  # 默认的视场角
+    special_fov_deg = 60    # 中心视点的特殊视场角
+
     up = compute_plane_normal(eye_left, center, eye_right)  # 使用之前定义的函数计算up向量
 
     # 存储射线和交点结果
     rays = []
     ans = []
-    cameras = []  # 存储相机视锥的可视化对象
 
-    # 处理三个视点：中心，左侧，右侧
-    for eye in [eye_center, eye_left, eye_right]:
-        # 转换为Open3D Tensor
-        eye_tensor = o3d.core.Tensor(eye, dtype=o3d.core.float64)
-        center_tensor = o3d.core.Tensor(center, dtype=o3d.core.float64)
-        up_tensor = o3d.core.Tensor(up, dtype=o3d.core.float64)
 
-        # 直接使用 create_rays_pinhole 函数
+    # 配置每个视点的具体参数
+    viewpoints = [(eye_center, special_fov_deg), (eye_left, default_fov_deg), (eye_right, default_fov_deg)]
+
+    for eye, fov_deg in viewpoints:
         rays_current = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
             fov_deg=fov_deg,
-            center=center_tensor,
-            eye=eye_tensor,
-            up=up_tensor,
+            center=o3d.core.Tensor(center, dtype=o3d.core.float64),
+            eye=o3d.core.Tensor(eye, dtype=o3d.core.float64),
+            up=o3d.core.Tensor(up, dtype=o3d.core.float64),
             width_px=width_px,
             height_px=height_px
         )
-
         # 计算射线与场景中的交点
         ans_current = scene.cast_rays(rays_current)
         rays.append(rays_current)
         ans.append(ans_current)
 
-    #     # 创建相机可视化，此处假设我们仍然需要extrinsic和intrinsic矩阵，仅用于可视化
-    #     intrinsic_matrix = compute_intrinsic_matrix(fov_deg, width_px, height_px)  # 假设此函数仍然可用
-    #     extrinsic_matrix = compute_extrinsic_matrix(eye, center, up)  # 假设此函数仍然可用
-    #     camera = o3d.geometry.LineSet.create_camera_visualization(width_px, height_px, intrinsic_matrix,
-    #                                                               extrinsic_matrix, scale=100.0)
-    #     cameras.append(camera)
-    #
-    # # 设置不同颜色以区分不同的相机
-    # cameras[0].paint_uniform_color([1, 0, 0])  # Red
-    # cameras[1].paint_uniform_color([0, 1, 0])  # Green
-    # cameras[2].paint_uniform_color([0, 0, 1])  # Blue
+    return rays, ans
 
-    return rays, ans, cameras
+# def ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene):
+#     width_px = 4000
+#     height_px = 3036
+#     fov_deg = 33.4
+#     up = compute_plane_normal(eye_left, center, eye_right)  # 使用之前定义的函数计算up向量
+#
+#     # 存储射线和交点结果
+#     rays = []
+#     ans = []
 
-def visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, center, scene, ray_length=150, colors=[[0, 1, 1], [0, 1, 1], [0, 1, 1]]):
+#
+#     # 处理三个视点：中心，左侧，右侧
+#     for eye in [eye_center, eye_left, eye_right]:
+#         # 转换为Open3D Tensor
+#         eye_tensor = o3d.core.Tensor(eye, dtype=o3d.core.float64)
+#         center_tensor = o3d.core.Tensor(center, dtype=o3d.core.float64)
+#         up_tensor = o3d.core.Tensor(up, dtype=o3d.core.float64)
+#
+#         # 直接使用 create_rays_pinhole 函数
+#         rays_current = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
+#             fov_deg=fov_deg,
+#             center=center_tensor,
+#             eye=eye_tensor,
+#             up=up_tensor,
+#             width_px=width_px,
+#             height_px=height_px
+#         )
+#
+#         # 计算射线与场景中的交点
+#         ans_current = scene.cast_rays(rays_current)
+#         rays.append(rays_current)
+#         ans.append(ans_current)
+#
+#
+#     return rays, ans
+
+def visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, center, scene, ray_length=150, colors=[[1, 0, 0], [0, 1, 1], [0, 1, 1]]):
     """
     Visualize rays from multiple viewpoints with specified colors and lengths.
+    Adjusts the field of view for each camera specifically.
 
     Parameters:
     - eye_center, eye_left, eye_right: Lists or numpy arrays containing the coordinates of the viewpoints.
@@ -286,19 +308,23 @@ def visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, center, scen
     Returns:
     - List of o3d.geometry.LineSet objects for visualization.
     """
-    width_px = 5  # Small number of pixels
-    height_px = 5
-    fov_deg = 60
-    # up = np.array([0, 0, 1])  # Assuming up vector
-    up = compute_plane_normal(eye_left, center, eye_right)  # 使用之前定义的函数计算up向量
+    width_px = 4
+    height_px = 3
+    default_fov_deg = 33.4  # Default field of view for left and right cameras
+    special_fov_deg = 60    # Special field of view for the center camera
+
+    # up vector calculated via a predefined function
+    up = compute_plane_normal(eye_left, center, eye_right)  # Calculate the normal vector for the plane
 
     # Store ray visualization objects
     rays_visualizations = []
 
+    # Define viewpoints and corresponding FOV
+    viewpoints = [(eye_center, special_fov_deg), (eye_left, default_fov_deg), (eye_right, default_fov_deg)]
+
     # Process each viewpoint
-    viewpoints = [eye_center, eye_left, eye_right]
-    for idx, eye in enumerate(viewpoints):
-        # Create rays
+    for idx, (eye, fov_deg) in enumerate(viewpoints):
+        # Create rays using pinhole model
         rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
             fov_deg=fov_deg,
             center=o3d.core.Tensor(center, dtype=o3d.core.float64),
@@ -469,6 +495,11 @@ def generate_eye_positions(eye_center, center, displacement):
         eye_left = eye_center - np.array([displacement, 0, 0])
         eye_right = eye_center + np.array([displacement, 0, 0])
         print("It's the zenith point.")
+
+        # Calculate the direction vector from eye_center to center
+        direction_vector = np.array(center) - np.array(eye_center)
+        direction_vector_normalized = direction_vector / np.linalg.norm(direction_vector)
+
     else:
         # Calculate the direction vector from eye_center to center
         direction_vector = np.array(center) - np.array(eye_center)
@@ -485,8 +516,15 @@ def generate_eye_positions(eye_center, center, displacement):
         # Calculate eye_left and eye_right by moving along the line_direction from eye_center
         eye_left = eye_center - line_direction_normalized * displacement
         eye_right = eye_center + line_direction_normalized * displacement
-    print("eye_center, eye_left, eye_right:",eye_center, eye_left, eye_right)
-    return eye_left, eye_right
+
+    # Calculate the apex of the isosceles triangle
+    apex_angle_rad = np.deg2rad(21.3)
+    d = displacement / (2 * np.tan(apex_angle_rad / 2))  # distance from the base midpoint to the apex
+    apex = eye_center + direction_vector_normalized * d
+
+    # print("eye_center, eye_left, eye_right, apex:", eye_center, eye_left, eye_right, apex)
+    return eye_left, eye_right, apex
+
 
 def count_hits(ans):
     hits = []
