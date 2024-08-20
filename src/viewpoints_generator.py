@@ -46,25 +46,16 @@ def generate_viewpoints_on_sphere1(radius, center, angle_step_large=45, angle_st
     return viewpoints
 
 
-def generate_viewpoints_on_ellipsoid1(a, b, c, center, angle_step_large=45, angle_step_small=30):
+def generate_viewpoints_on_ellipsoid1(a, b, c, center, angle_step_phi_large=10, angle_step_phi_small=10, angle_step_theta=5):
     """
     Generates viewpoints and corresponding view directions on the surface of an ellipsoid with varying density.
 
-    Parameters:
-    - a, b, c: Semi-major axis lengths of the ellipsoid along the x, y, and z axes, respectively.
-    - base_center: Center coordinates of the ellipsoid's base.
-    - angle_step_large: The angular interval (in degrees) for generating points in sparse regions.
-    - angle_step_small: The angular interval (in degrees) for generating points in dense regions.
-
-    Returns:
-    - viewpoints: A list of generated viewpoints, view directions, and view categories on the ellipsoid surface.
-                  Each item is a tuple: (point coordinates, view direction, view category).
     """
     viewpoints = []
     # Convert angles to radians
-    angle_step_rad_large = np.deg2rad(angle_step_large)
-    angle_step_rad_small = np.deg2rad(angle_step_small)
-
+    angle_step_rad_large = np.deg2rad(angle_step_phi_large)
+    angle_step_rad_small = np.deg2rad(angle_step_phi_small)
+    angle_step_rad_theta = np.deg2rad(angle_step_theta)
 
     # Add special cases for zenith and nadir points
     # 为顶点和底点设置合适的视点方向
@@ -72,7 +63,7 @@ def generate_viewpoints_on_ellipsoid1(a, b, c, center, angle_step_large=45, angl
     viewpoints.append((center + np.array([0, 0, -c]), np.array([0, 0, 1]), 'Bottomview'))
 
     # Iterate over zenith angles
-    for theta in np.arange(angle_step_rad_small, np.pi, angle_step_rad_small):
+    for theta in np.arange(angle_step_rad_theta, np.pi, angle_step_rad_theta):
         if theta <= np.deg2rad(45) or theta > np.deg2rad(135):
             angle_step_rad_phi = angle_step_rad_large
         else:

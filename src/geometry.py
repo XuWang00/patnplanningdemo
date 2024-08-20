@@ -194,3 +194,25 @@ def create_line_set2(eye_center, eye_left, eye_right, center):
     line_set.colors = o3d.utility.Vector3dVector(colors)
 
     return line_set
+
+
+def create_point(center, color=[1, 0, 1], radius=5):
+    """
+    创建一个代表点的小球（Sphere）。
+
+    参数:
+    - center: 点的坐标，形式为[x, y, z]。
+    - color: 球体的颜色，形式为[R, G, B]，默认为红色。
+    - radius: 球体的半径，默认为0.05。
+
+    返回:
+    - sphere: Open3D的TriangleMesh对象，表示一个小球。
+    """
+    # 创建一个小球来表示点
+    sphere = o3d.geometry.TriangleMesh.create_sphere(radius=radius)
+    sphere.translate(center)  # 将球体移动到指定的位置
+
+    # 设置球体的颜色
+    sphere.paint_uniform_color(color)  # 设置统一的颜色
+
+    return sphere

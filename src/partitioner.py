@@ -254,10 +254,10 @@ def highlight_cuboid_frame(cuboids, index):
         lines=o3d.utility.Vector2iVector(lines),
     )
 
-    # 设置线框颜色为红色
-    colors = [[1, 0, 0] for i in range(len(lines))]  # 红色
+    # 设置线框颜色
+    colors = [[0, 0, 1] for i in range(len(lines))]  # 红色
     line_set.colors = o3d.utility.Vector3dVector(colors)
-    print("will hightlight the cuboid")
+    print(f"will hightlight the cuboid{index}")
     return line_set
 
 
@@ -287,10 +287,10 @@ def highlight_cuboid_vertices(mesh, cuboids, idx_to_highlight):
     for i, vertex in enumerate(highlighted_mesh.vertices):
         if (np.asarray(vertex) >= target_cuboid.get_min_bound()).all() and \
                 (np.asarray(vertex) <= target_cuboid.get_max_bound()).all():
-            highlighted_mesh.vertex_colors[i] = [1, 0, 0]  # 红色
+            highlighted_mesh.vertex_colors[i] = [1, 0, 0]
         # else:
         #     complement_mesh.vertex_colors[i] = [0, 0, 1]
-
+    print("ok")
     return highlighted_mesh
 
 
@@ -315,3 +315,91 @@ def get_cuboid_center(aabb_cuboids, idx):
 
     return center
 
+
+def filter_triangles_by_cuboid(mesh, aabb_cuboids, cuboid_idx):
+    """
+    根据指定的立方体索引，筛选出处于该立方体内的所有三角面片的索引。
+
+    参数:
+    - mesh: Open3D TriangleMesh 对象，包含顶点和三角面片。
+    - aabb_cuboids: 包含多个立方体的列表。
+    - cuboid_idx: 需要筛选的立方体的索引。
+
+    返回:
+    - triangle_indices: 在指定立方体内的三角面片索引列表。
+    """
+    # 获取指定索引的立方体
+    cuboid = aabb_cuboids[cuboid_idx]
+
+    # 获取模型的顶点和三角面片
+    vertices = np.asarray(mesh.vertices)
+    triangles = np.asarray(mesh.triangles)
+
+    # 存储处于立方体内部的三角面片的索引
+    triangle_indices = []
+
+    # 获取立方体的最小和最大边界
+    min_bound = cuboid.get_min_bound()
+    max_bound = cuboid.get_max_bound()
+
+    # 检查每个三角面片
+    for idx, triangle in enumerate(triangles):
+        # 获取三角面片的三个顶点
+        p1, p2, p3 = vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
+
+        # 检查三角面片的每个顶点是否都在立方体内
+        if (all(min_bound <= p1) and all(p1 <= max_bound) and
+                all(min_bound <= p2) and all(p2 <= max_bound) and
+                all(min_bound <= p3) and all(p3 <= max_bound)):
+            triangle_indices.append(idx)
+
+    return triangle_indices
+
+
+def calculate_total_area_of_triangles(mesh, triangle_indices):
+    """
+    计算特定三角面片索引列表中所有三角面片的面积总和。
+
+    参数:
+    - mesh: Open3D TriangleMesh 对象，包含顶点和三角面片。
+    - triangle_indices: 三角面片索引的列表。
+
+    返回:
+    - total_area: 指定三角面片的面积总和。
+    """
+    vertices = np.asarray(mesh.vertices)
+    triangles = np.asarray(mesh.triangles)
+    total_area = 0.0
+
+    # 计算每个指定三角面片的面积
+    for idx in triangle_indices:
+        # 获取三角面片的顶点索引
+        tri = triangles[idx]
+        # 获取顶点
+        p1, p2, p3 = vertices[tri[0]], vertices[tri[1]], vertices[tri[2]]
+        # 计算向量
+        v1, v2 = p2 - p1, p3 - p1
+        # 叉积的模长给出平行四边形的面积，三角形面积是它的一半
+        triangle_area = np.linalg.norm(np.cross(v1, v2)) / 2
+        total_area += triangle_area
+
+    return total_area
+
+
+def create_custom_aabb(center, size):
+    """
+    创建一个自定义的轴对齐包围盒 (AABB)。
+
+    参数:
+    - center: 立方体中心的坐标，格式为 [x, y, z]。
+    - size: 立方体的边长。
+
+    返回:
+    - aabb: 创建的 AxisAlignedBoundingBox 对象。
+    """
+    half_size = np.array([size, size, size]) / 2
+    min_bound = np.array(center) - half_size
+    max_bound = np.array(center) + half_size
+    aabb = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+
+    return aabb

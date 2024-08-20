@@ -1,7 +1,7 @@
 import open3d as o3d
+import numpy as np
 
-
-def create_ground_plane(size=3000, height=0.01, color=[0.5, 0.5, 0.5]):
+def create_ground_plane(size=30, height=0.01, color=[0.5, 0.5, 0.5]):
     """Create a large plane to represent the ground."""
     # Create a mesh plane
     plane_mesh = o3d.geometry.TriangleMesh.create_box(width=size, height=size, depth=height)
@@ -16,6 +16,10 @@ def create_ground_plane(size=3000, height=0.01, color=[0.5, 0.5, 0.5]):
     plane_mesh.paint_uniform_color(color)
 
     return plane_mesh
+
+
+
+
 
 def coordinate():
     # Create a coordinate frame
@@ -36,3 +40,5 @@ def axis(base_center):
     line_set.colors = o3d.utility.Vector3dVector(colors)
 
     return line_set
+
+

@@ -1,203 +1,99 @@
-# import necessary libs
-import open3d as o3d
+# import numpy as np
+#
+# def angle():
+#     # 定义两个点的坐标
+#     point1 = np.array([-76.01671074, -127.84804927, 613.55604607])
+#     point2 = np.array([-38.53177982, -64.80434153, 364.32442822])
+#     # point2 = np.array([0.0,          0.0,         108.13248452])
+#     # 计算两点间的向量
+#     vector = point1 - point2
+#
+#     # 定义z轴向量
+#     z_axis = np.array([0, 0, 1])
+#
+#     # 计算两向量的点积
+#     dot_product = np.dot(vector, z_axis)
+#
+#     # 计算两向量的模长
+#     vector_norm = np.linalg.norm(vector)
+#     z_axis_norm = np.linalg.norm(z_axis)
+#
+#     # 计算两向量的夹角（弧度）
+#     angle_radians = np.arccos(dot_product / (vector_norm * z_axis_norm))
+#
+#     # 转换为度数
+#     angle_degrees = np.degrees(angle_radians)
+#     print(angle_degrees)
+#
+#
+#     # 定义旋转矩阵 R
+#     R = np.array([
+#         [0.984952136328966, -0.012650740756177, 0.172363708185124],
+#         [-0.006088375048936, -0.999238186078382, -0.038548400382477],
+#         [0.172720064932451, 0.036918914408529, -0.984278808533754]
+#     ])
+#
+#     # 计算欧拉角
+#     theta_y = np.arcsin(-R[2, 0])
+#     theta_z = np.arctan2(R[1, 0], R[0, 0])
+#     theta_x = np.arctan2(R[2, 1], R[2, 2])
+#
+#     # 转换为度数
+#     theta_y_deg = np.degrees(theta_y)
+#     theta_z_deg = np.degrees(theta_z)
+#     theta_x_deg = np.degrees(theta_x)
+#
+#     print("偏航角 Theta_z (Degrees):", theta_z_deg)
+#     print("俯仰角 Theta_y (Degrees):", theta_y_deg)
+#     print("翻滚角 Theta_x (Degrees):", theta_x_deg)
+
 import numpy as np
-# import point_cloud_viewer
-import copy
 
+def generate_lefteye_positions(eye_center, center, displacement = 101, angle = 22):
+    """
+    Generates position and direction for eye_left based on a specified displacement
+    along the intersection line of plane A (perpendicular to the line connecting eye_center and center)
+    and plane B (horizontal plane containing eye_center).
 
-# main function
-def main():
-    ############################################
-    ############ 3D visulization window
-    ############################################
+    Parameters:
+    - eye_center: Coordinates of the central viewpoint as a NumPy array.
+    - center: Coordinates of the target center point as a NumPy array.
+    - displacement: Distance in mm from eye_center to eye_left along the intersection line.
 
-    # 创建可视化窗口并添加模型
-    vis = o3d.visualization.Visualizer()
-    vis.create_window()
-    # 在窗口中显示坐标轴
-    coord_axes = o3d.geometry.TriangleMesh.create_coordinate_frame(size=50, origin=[0, 0, 0])
-    vis.add_geometry(coord_axes)
+    Returns:
+    - Coordinates for eye_left and direction vector from eye_left to the apex.
+    """
+    # Calculate the direction vector from eye_center to center
+    direction_vector = np.array(center) - np.array(eye_center)
+    direction_vector_normalized = direction_vector / np.linalg.norm(direction_vector)
 
-    ############################################
-    ############ object to be 3D inspected
-    ############################################
+    # Plane B is horizontal, so its normal can be the z-axis component disregarding
+    normal_B = np.array([0, 0, 1])
 
-    # OBJ file path
-    obj_file_path = "D:\\pathplanning\\pathplanningcodezhan\\1.obj"
-    model = o3d.io.read_triangle_mesh(obj_file_path)
-    current_center = model.get_center()
-    # translation target
-    target_position = [60, 0, 60]
+    # Find the intersection line direction for planes A and B
+    line_direction = np.cross(direction_vector_normalized, normal_B)
+    line_direction_normalized = line_direction / np.linalg.norm(line_direction)
 
-    # calculation of vector
-    translation_vector = np.array(target_position) - np.array(current_center)
-    # intermediate check
-    # print("translation vector is:",translation_vector)
+    # Calculate eye_left by moving along the line_direction from eye_center
+    eye_left = eye_center - line_direction_normalized * displacement
 
-    # Tranlating
-    model.translate(translation_vector)
-    # scaling
-    scale_factor = 0.1
-    model.scale(scale_factor, center=model.get_center())
-    # orientation
-    model_copy = copy.deepcopy(model)
-    R = model_copy.get_rotation_matrix_from_xyz((-np.pi / 2, 0, 0))
-    model_copy.rotate(R, center=(target_position))
+    # Calculate the apex of the isosceles triangle
+    apex_angle_rad = np.deg2rad(angle)
+    d = displacement / (2 * np.tan(apex_angle_rad / 2))  # distance from the base midpoint to the apex
+    apex = eye_center + direction_vector_normalized * d
 
-    # calculate the normals
-    model.compute_vertex_normals()
-    model_copy.compute_vertex_normals()
+    # Direction vector from eye_left to apex
+    direction_from_left_to_apex = apex - eye_left
+    direction_from_left_to_apex_normalized = direction_from_left_to_apex / np.linalg.norm(direction_from_left_to_apex)
+    print(f"eye_center: {eye_center}, direction_from_center: {direction_vector_normalized}")
+    print(f"eye_left: {eye_left}, direction_from_left: {direction_from_left_to_apex_normalized}")
+    return eye_left, direction_from_left_to_apex_normalized
 
-    # add the obeject in 3D scene
-    # vis.add_geometry(model)
-    vis.add_geometry(model_copy)
+# Example usage
 
-    ############################################
-    ############ plot a circular trajectory
-    ############################################
-
-    # XOZ plane circular trajectory
-    radius = 50.0  # radius
-    num_points = 100  # point on the circle
-    theta = np.linspace(0, 2 * np.pi, num_points)  # angle
-    x = radius * np.cos(theta)
-    y = np.zeros_like(x)
-    z = radius * np.sin(theta)
-
-    # create a point cloud
-    cloud = o3d.geometry.PointCloud()
-    cloud.scale(500.0, center=cloud.get_center())
-    points = np.column_stack((x, y, z)) + [0, 0, 0]
-    cloud.points = o3d.utility.Vector3dVector(points)
-
-    center_trajectory = model.get_center()
-    print("tra", center_trajectory)
-
-    cloud.translate(center_trajectory)
-    points_new = np.column_stack((x, y, z))
-    # add the point cloud
-    vis.add_geometry(cloud)
-
-    ############################################
-    ############ import 5M 3D model
-    ############################################
-
-    obj_file_path_5m = "D:\\pathplanning\\pathplanningcodezhan\\5m.obj"
-    model_5m = o3d.io.read_triangle_mesh(obj_file_path_5m)
-    current_center_5m = model_5m.get_center()
-    # translation
-    target_position_5m = points[20]
-    translation_vector_5m = np.array(target_position_5m) - np.array(current_center_5m)
-    model_5m.translate(translation_vector_5m)
-
-    ## orientation 5m, calculating the rotation matrix
-    v2 = [1, 0, 0]
-    # v1 = np.array(model_5m.get_center()) - np.array(model.get_center())
-    v1 = np.array(model_5m.get_center()) - np.array(model.get_center())
-
-    unit_v1 = v1 / np.linalg.norm(v1)
-    unit_v2 = v2 / np.linalg.norm(v2)
-
-    rotation_axis = np.cross(unit_v2, unit_v1)
-
-    cosine_theta = np.dot(unit_v2, unit_v1)
-    sine_theta = np.linalg.norm(rotation_axis)
-    rotation_angle = np.arctan2(sine_theta, cosine_theta)
-
-    if rotation_angle != 0:
-        rotation_matrix = np.array([
-            [cosine_theta + (1 - cosine_theta) * rotation_axis[0] ** 2,
-             (1 - cosine_theta) * rotation_axis[0] * rotation_axis[1] - rotation_axis[2] * np.sin(rotation_angle),
-             (1 - cosine_theta) * rotation_axis[0] * rotation_axis[2] + rotation_axis[1] * np.sin(rotation_angle)],
-            [(1 - cosine_theta) * rotation_axis[1] * rotation_axis[0] + rotation_axis[2] * np.sin(rotation_angle),
-             cosine_theta + (1 - cosine_theta) * rotation_axis[1] ** 2,
-             (1 - cosine_theta) * rotation_axis[1] * rotation_axis[2] - rotation_axis[0] * np.sin(rotation_angle)],
-            [(1 - cosine_theta) * rotation_axis[2] * rotation_axis[0] - rotation_axis[1] * np.sin(rotation_angle),
-             (1 - cosine_theta) * rotation_axis[2] * rotation_axis[1] + rotation_axis[0] * np.sin(rotation_angle),
-             cosine_theta + (1 - cosine_theta) * rotation_axis[2] ** 2]
-        ])
-    else:
-
-        rotation_matrix = np.identity(3)
-
-    # print("Translation matrix：")
-    # print(rotation_matrix)
-    model_5m.rotate(rotation_matrix, center=(model_5m.get_center()))
-    scale_factor = 0.06  #
-
-    model_5m.scale(scale_factor, center=model_5m.get_center())
-    model_5m.compute_vertex_normals()
-    vis.add_geometry(model_5m)
-
-    ############################################
-    ############ ray casting related
-    ############################################
-    scene = o3d.t.geometry.RaycastingScene()
-    mesh_scene = o3d.t.io.read_triangle_mesh(obj_file_path)
-    # translate
-    mesh_scene.translate(translation_vector)
-    # rotate
-    mesh_scene.rotate(R, center=target_position)
-    mesh_scene.scale(0.1, center=mesh_scene.get_center())
-    # vis.add_geometry(mesh_scene.to_legacy())
-
-    mesh_id = scene.add_triangles(mesh_scene)
-
-    # here need to be extended, something to do with the parameters of 5M scanner, now I am waiting for it
-    rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-        fov_deg=90,
-        center=[10, 0, 40],
-        eye=[2, 3, 0],
-        up=[0, 1, 0],
-        width_px=640,
-        height_px=480,
-    )
-    ans = scene.cast_rays(rays)
-    hit = ans['t_hit'].isfinite()
-    points = rays[hit][:, :3] + rays[hit][:, 3:] * ans['t_hit'][hit].reshape((-1, 1))
-    # pcd = o3d.t.geometry.PointCloud(points)
-
-    # color the point cloud
-    num_points = points.shape[0]
-    colors = np.zeros((num_points, 3))
-    colors[:, 2] = 1  # give all the points blue
-
-    tensor_colors = o3d.core.Tensor(colors, dtype=o3d.core.Dtype.Float32)
-
-    # color
-    pcd = o3d.t.geometry.PointCloud(points)
-    pcd.point['colors'] = tensor_colors
-
-    #   tensor claas transformation to a normal one
-    pcd = pcd.to_legacy()
-    # pcd.points = o3d.utility.Vector3dVector(points)
-    vis.add_geometry(pcd)
-
-    vis.run()
-    vis.destroy_window()
-
-
-# 3D scanner 3D model
-
-
-############################################
-############ point cloud saving
-############################################
-
-
-############################################
-############ point cloud visulization
-############################################
-
-
-############################################
-############
-############################################
-
-
-############################################
-############
-############################################
 
 if __name__ == "__main__":
-    main()
+    # angle()
+    eye_center = np.array([ 8.45086976e-15, 1.33790965e+02, 4.91409916e+02])
+    center = np.array([0, 0, 18.10626149])
+    generate_lefteye_positions(eye_center, center)

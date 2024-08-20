@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
 
+
 def normalize_and_sum_angles(mesh, angles_list):
     # 提取所有三角形面片的顶点索引
     triangles = np.asarray(mesh.triangles)
@@ -9,7 +10,7 @@ def normalize_and_sum_angles(mesh, angles_list):
 
     # 初始化求和变量
     angle_weighted_sum = 0.0
-
+    angle_normalized_sum = 0.0
     # 处理每一个角度和索引
     for index, angle in angles_list:
         # 计算三角形面积
@@ -20,9 +21,12 @@ def normalize_and_sum_angles(mesh, angles_list):
             normalized_angle = 0
         else:
             # 归一化角度 (0度->1, 90度->0)
-            normalized_angle = 1 - (angle / 90.0)
-            # 加权求和
+            normalized_angle = 1 - (angle / 90.0)*2
+            # # 加权求和
             angle_weighted_sum += normalized_angle * area
+            # # 不加权求和检验
+            # angle_normalized_sum += normalized_angle
+
 
     return angle_weighted_sum
 
@@ -35,6 +39,7 @@ def normalize_and_sum_distances(mesh, distance_list):
 
     # 初始化求和变量
     distance_weighted_sum = 0.0
+    distance_normalized_sum = 0.0
 
     # 处理每一个距离和索引
     for index, distance in distance_list:
@@ -43,21 +48,21 @@ def normalize_and_sum_distances(mesh, distance_list):
         v1, v2, v3 = vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
         area = 0.5 * np.linalg.norm(np.cross(v2 - v1, v3 - v1))
         # 距离调整
-        adjusted_distance = distance - 480
-        # 归一化调整距离 (0mm -> 1, 35mm -> 0)
-        if adjusted_distance < 0:
-            normalized_distance = 1.0
-        elif adjusted_distance > 35:
-            normalized_distance = 0.0
+        adjusted_distance = abs(distance - 480)
+        # 归一化调整距离 (0mm -> 1, 65mm -> 0)
+        if adjusted_distance > 90:
+            normalized_distance = 0
         else:
-            normalized_distance = 1 - (adjusted_distance / 35.0)
-        # 加权求和
+            normalized_distance = 1 - (adjusted_distance / 90.0)*2
+        # # 加权求和
         distance_weighted_sum += normalized_distance * area
+        # 不加权求和检验
+        # distance_normalized_sum += normalized_distance
+
 
     return distance_weighted_sum
 
-
-def calculate_total_area_of_triangles(mesh, hit_triangle_indices):
+def calculate_total_area_of_hit_triangles(mesh, hit_triangle_indices):
     # 确保提供的mesh是一个Open3D的TriangleMesh对象
     if not isinstance(mesh, o3d.geometry.TriangleMesh):
         raise TypeError("The mesh must be an Open3D TriangleMesh object.")
@@ -82,31 +87,68 @@ def calculate_total_area_of_triangles(mesh, hit_triangle_indices):
 
     return total_area
 
-def calculate_value_c(a, b, e, f, mesh, angle_weighted_sum, distance_weighted_sum, hit_triangle_indices):
+
+def calculate_total_mesh_area(mesh):
+    """
+    计算给定三维网格的所有三角面片的总面积。
+
+    参数:
+    - mesh: Open3D的TriangleMesh对象。
+
+    返回:
+    - total_area: 所有三角面片的总面积。
+    """
+    if not isinstance(mesh, o3d.geometry.TriangleMesh):
+        raise TypeError("The mesh must be an Open3D TriangleMesh object.")
+
+    triangles = np.asarray(mesh.triangles)
+    vertices = np.asarray(mesh.vertices)
+    total_area = 0.0
+
+    for triangle in triangles:
+        # 获取三个顶点的坐标
+        v1, v2, v3 = vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
+        # 计算三角形的面积
+        area = 0.5 * np.linalg.norm(np.cross(v2 - v1, v3 - v1))
+        total_area += area
+
+    return total_area
+
+
+def calculate_costfunction(mesh, total_mesh_area, angles_list, distance_list, hit_triangle_indices, a, b, e, f):
     """
     Calculate the value C using the formula:
-    C = a + b * e * angle_weighted_sum + b * f * distance_weighted_sum
+    C = a * total_area_of_triangles + b * e * angle_weighted_sum + b * f * distance_weighted_sum
 
     Parameters:
+    mesh (Mesh): The mesh object containing triangle data.
+    angles_list (list): List of angle measures.
+    distance_list (list): List of distance measures.
+    hit_triangle_indices (set): Indices of triangles that have been hit.
     a (float): Constant term in the formula.
     b (float): Coefficient for the weighted sums in the formula.
     e (float): Coefficient for the angle weighted sum.
     f (float): Coefficient for the distance weighted sum.
-    angle_weighted_sum (float): The weighted sum of angles, calculated from previous function.
-    distance_weighted_sum (float): The weighted sum of distances, calculated from previous function.
 
     Returns:
     float: The calculated value of C.
     """
-    # Calculate the value C according to the provided formula
-    C = a*calculate_total_area_of_triangles(mesh, hit_triangle_indices) + b * e * angle_weighted_sum + b * f * distance_weighted_sum
-    return C
+    if len(hit_triangle_indices) == 0:
+        return 0
 
-
-def calculate_costfunction(mesh, angles_list, distance_list, hit_triangle_indices, a, b, e, f):
-
+    # Normalize and sum angles and distances
     angle_weighted_sum = normalize_and_sum_angles(mesh, angles_list)
     distance_weighted_sum = normalize_and_sum_distances(mesh, distance_list)
-    c = calculate_value_c(a, b, e, f, mesh, angle_weighted_sum, distance_weighted_sum, hit_triangle_indices)
+
+    # Calculate the total area of hit triangles
+    total_area_of_hit_triangles = calculate_total_area_of_hit_triangles(mesh, hit_triangle_indices)
+
+
+    # Calculate the value C according to the provided formula
+    # c = 1000*(a * total_area_of_hit_triangles/total_mesh_area + b * (e * angle_weighted_sum + f * distance_weighted_sum) / len(hit_triangle_indices))
+    #c = 1000 * (a * total_area_of_hit_triangles / total_mesh_area + b * (e * angle_weighted_sum + f * distance_weighted_sum) / total_area_of_hit_triangles)
+    c = a*total_area_of_hit_triangles + b * (e * angle_weighted_sum + f * distance_weighted_sum)   ##old costfunction,works well
 
     return c
+
+

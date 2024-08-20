@@ -63,13 +63,50 @@ def load_obj_and_create_wireframe(model_path):
 
     return mesh, line_set
 
+# def adjust_model_position(mesh):
+#     # Get the model's axis-aligned bounding box
+#     bbox = mesh.get_axis_aligned_bounding_box()
+#     # Calculate the distance needed to move up so that the model bottom aligns with the ground plane
+#     translation = -bbox.min_bound
+#     # translation[2] = 0  # Assuming the Z-axis is vertical, no need to adjust the Z-axis
+#     # Move the model up
+#     mesh.translate(translation)
+#
+#     return mesh
 def adjust_model_position(mesh):
-    # Get the model's axis-aligned bounding box
+    # 获取模型的轴对齐边界框
     bbox = mesh.get_axis_aligned_bounding_box()
-    # Calculate the distance needed to move up so that the model bottom aligns with the ground plane
-    translation = -bbox.min_bound
-    # translation[2] = 0  # Assuming the Z-axis is vertical, no need to adjust the Z-axis
-    # Move the model up
+
+    # 计算将边界框底面中心移动到原点所需的平移量
+    # 边界框底面中心的x和y坐标是x_min + (x_max - x_min)/2 和 y_min + (y_max - y_min)/2
+    bottom_center = np.array([
+        (bbox.min_bound[0] + bbox.max_bound[0]) / 2,
+        (bbox.min_bound[1] + bbox.max_bound[1]) / 2,
+        bbox.min_bound[2]  # z坐标保持底面即可
+    ])
+
+    # 计算从当前位置到原点的平移向量
+    translation = -bottom_center
+    # 平移模型
+    mesh.translate(translation)
+    print(translation)
+    return mesh
+
+def adjust_model_position1(mesh, new_position):
+    # 获取模型的轴对齐边界框
+    bbox = mesh.get_axis_aligned_bounding_box()
+
+    # 计算边界框底面中心的坐标
+    bottom_center = np.array([
+        (bbox.min_bound[0] + bbox.max_bound[0]) / 2,
+        (bbox.min_bound[1] + bbox.max_bound[1]) / 2,
+        bbox.min_bound[2]  # 底面的z坐标
+    ])
+
+    # 计算从底面中心到新位置的平移向量
+    translation = np.array(new_position) - bottom_center
+
+    # 平移模型
     mesh.translate(translation)
 
     return mesh

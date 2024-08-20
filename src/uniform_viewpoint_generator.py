@@ -260,7 +260,7 @@ def generate_viewpoints_on_elliptical_cylinder(a, b, height, base_center, angle_
 
 
 
-def visualize_viewpoints_as_arrows(viewpoints, arrow_length=20, arrow_color=[1, 0, 0]):
+def visualize_viewpoints_as_arrows(viewpoints, arrow_color, arrow_length=20 ):
     """
         Create and visualize arrows based on a set of viewpoints.
 

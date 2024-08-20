@@ -226,10 +226,21 @@ def compute_plane_normal(p1, p2, p3):
     return normal_normalized
 
 def ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene):
-    width_px = 4000
-    height_px = 3036
-    default_fov_deg = 33.4  # 默认的视场角
-    special_fov_deg = 60    # 中心视点的特殊视场角
+    # width_px = 4000
+    # height_px = 3036
+
+    # width_px = 2000  #1/2
+    # height_px = 1518
+
+    width_px_ca = 1000  #1/4
+    height_px_ca = 759
+    # default_fov_deg = 33.4  # 默认水平视场角
+    fov_deg_ca = 45 # 默认水平视场角
+
+    width_px_pr = 1675
+    height_px_pr = 950
+    fov_deg_pr = 38.3
+
 
     up = compute_plane_normal(eye_left, center, eye_right)  # 使用之前定义的函数计算up向量
 
@@ -238,10 +249,12 @@ def ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center,
     ans = []
 
 
-    # 配置每个视点的具体参数
-    viewpoints = [(eye_center, special_fov_deg), (eye_left, default_fov_deg), (eye_right, default_fov_deg)]
+    # 配置每个视点的具体参数，注意投影仪和相机使用不同的参数
+    viewpoints = [(eye_center, fov_deg_pr, width_px_pr, height_px_pr),
+                  (eye_left, fov_deg_ca, width_px_ca, height_px_ca),
+                  (eye_right, fov_deg_ca, width_px_ca, height_px_ca)]
 
-    for eye, fov_deg in viewpoints:
+    for eye, fov_deg, width_px, height_px in viewpoints:
         rays_current = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
             fov_deg=fov_deg,
             center=o3d.core.Tensor(center, dtype=o3d.core.float64),
@@ -349,133 +362,7 @@ def visualize_rays_from_viewpoints(eye_center, eye_left, eye_right, center, scen
 
     return rays_visualizations
 
-# def ray_casting_for_visualization_3eyes(eye_center, eye_left, eye_right, center, scene):
-#     width_px = 5000
-#     height_px = 5000
-#     fov_deg = 60
-#     up = compute_plane_normal(eye_left, center, eye_right)
-#     angle = 0  # 左右视锥偏转角度
-#
-#     # 存储射线和交点结果
-#     rays = []
-#     ans = []
-#     cameras = []  # 存储相机视锥的可视化对象
-#
-#     # 创建三个视锥的射线和交点
-#     for eye in zip([eye_center, eye_left, eye_right]):
-#         intrinsic_matrix = compute_intrinsic_matrix(fov_deg, width_px, height_px)
-#         extrinsic_matrix = compute_extrinsic_matrix(eye, center, up)
-#
-#         # 创建射线
-#         rays_current = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-#             o3d.core.Tensor(intrinsic_matrix, dtype=o3d.core.float64),
-#             o3d.core.Tensor(extrinsic_matrix, dtype=o3d.core.float64),
-#             width_px,
-#             height_px
-#         )
-#
-#         # 计算交点
-#         ans_current = scene.cast_rays(rays_current)
-#         rays.append(rays_current)
-#         ans.append(ans_current)
-#
-#         # 创建相机可视化
-#         camera = o3d.geometry.LineSet.create_camera_visualization(width_px, height_px, intrinsic_matrix,
-#                                                                   extrinsic_matrix, scale=100.0)
-#         cameras.append(camera)
-#
-#     # 设置不同颜色以区分不同的相机
-#     cameras[0].paint_uniform_color([1, 0, 0])  # Red
-#     cameras[1].paint_uniform_color([0, 1, 0])  # Green
-#     cameras[2].paint_uniform_color([0, 0, 1])  # Blue
-#
-#     return rays, ans, cameras
-
-
-
-
-
-#
-#
-# def ray_casting_for_visualization_3eyes(eye, center, scene):
-#     width_px = 5000
-#     height_px = 5000
-#     fov_deg = 60
-#     up = [0, 0, 1]
-#     displacement = 95  # 80 mm
-#
-#     rays = []
-#     ans = []
-#     # hit = []
-#
-#     # 计算内参矩阵
-#     intrinsic_matrix = compute_intrinsic_matrix(fov_deg, width_px, height_px)
-#     intrinsic_tensor = o3d.core.Tensor(intrinsic_matrix, dtype=o3d.core.float64)
-#
-#     # 创建三个外参矩阵，对应中心、左侧和右侧视点
-#     eye_center = np.array(eye)
-#     # eye_left = eye_center - np.array([displacement, 0, 0])
-#     # eye_right = eye_center + np.array([displacement, 0, 0])
-#
-#     eye_left, eye_right = generate_eye_positions(eye_center, center, displacement)
-#
-#     extrinsic_matrix_center = compute_extrinsic_matrix(eye_center, center, up)
-#     extrinsic_matrix_left = compute_extrinsic_matrix(eye_left, center, up, angle_deg=-10)
-#     extrinsic_matrix_right = compute_extrinsic_matrix(eye_right, center, up, angle_deg=10)
-#
-#
-#     rays_center = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-#         o3d.core.Tensor(intrinsic_matrix, dtype=o3d.core.float64),
-#         o3d.core.Tensor(extrinsic_matrix_center, dtype=o3d.core.float64),
-#         width_px,
-#         height_px
-#     )
-#
-#     rays_left = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-#         o3d.core.Tensor(intrinsic_matrix, dtype=o3d.core.float64),
-#         o3d.core.Tensor(extrinsic_matrix_left, dtype=o3d.core.float64),
-#         width_px,
-#         height_px
-#     )
-#
-#     rays_right = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-#         o3d.core.Tensor(intrinsic_matrix, dtype=o3d.core.float64),
-#         o3d.core.Tensor(extrinsic_matrix_right, dtype=o3d.core.float64),
-#         width_px,
-#         height_px
-#     )
-#
-#
-#     ans_center = scene.cast_rays(rays_center )
-#     # hit_center = ans_center['t_hit'].isfinite()
-#     rays.append(rays_center)
-#     ans.append(ans_center)
-#
-#     ans_left = scene.cast_rays(rays_left )
-#     # hit_left = ans_left['t_hit'].isfinite()
-#     rays.append(rays_left)
-#     ans.append(ans_left)
-#
-#     ans_right = scene.cast_rays(rays_right )
-#     # hit_right = ans_right['t_hit'].isfinite()
-#     rays.append(rays_right)
-#     ans.append(ans_right)
-#
-#     camera_center = o3d.geometry.LineSet.create_camera_visualization(width_px, height_px, intrinsic_matrix,
-#                                                                      extrinsic_matrix_center, scale=100.0)
-#     camera_left = o3d.geometry.LineSet.create_camera_visualization(width_px, height_px, intrinsic_matrix,
-#                                                                    extrinsic_matrix_left, scale=100.0)
-#     camera_right = o3d.geometry.LineSet.create_camera_visualization(width_px, height_px, intrinsic_matrix,
-#                                                                     extrinsic_matrix_right, scale=100.0)
-#     # Set colors to differentiate cameras
-#     camera_center.paint_uniform_color([1, 0, 0])  # Red
-#     camera_left.paint_uniform_color([0, 1, 0])    # Green
-#     camera_right.paint_uniform_color([0, 0, 1])   # Blue
-#
-#     return rays, ans, camera_center, camera_left, camera_right
-
-
-def generate_eye_positions(eye_center, center, displacement):
+def generate_eye_positions(eye_center, center, displacement, angle = 22):
     """
     Generates positions for eye_left and eye_right based on a specified displacement
     along the intersection line of plane A (perpendicular to the line connecting eye_center and center)
@@ -492,8 +379,8 @@ def generate_eye_positions(eye_center, center, displacement):
     # Special case handling for zenith and nadir points
     if np.isclose(eye_center[0], center[0], atol=0.1) and np.isclose(eye_center[1], center[1], atol=0.1):
         # Directly above or below - handle by simple displacement along the x-axis
-        eye_left = eye_center - np.array([displacement, 0, 0])
-        eye_right = eye_center + np.array([displacement, 0, 0])
+        eye_left = eye_center - np.array([0, displacement, 0])
+        eye_right = eye_center + np.array([0, displacement, 0])
         print("It's the zenith point.")
 
         # Calculate the direction vector from eye_center to center
@@ -518,11 +405,12 @@ def generate_eye_positions(eye_center, center, displacement):
         eye_right = eye_center + line_direction_normalized * displacement
 
     # Calculate the apex of the isosceles triangle
-    apex_angle_rad = np.deg2rad(21.3)
+    apex_angle_rad = np.deg2rad(angle)
     d = displacement / (2 * np.tan(apex_angle_rad / 2))  # distance from the base midpoint to the apex
     apex = eye_center + direction_vector_normalized * d
 
-    # print("eye_center, eye_left, eye_right, apex:", eye_center, eye_left, eye_right, apex)
+    print("eye_center, eye_left, eye_right, apex:", eye_center, eye_left, eye_right, apex)
+
     return eye_left, eye_right, apex
 
 
@@ -562,9 +450,8 @@ def count_unique_hits_per_view(ans_list):
 
 
 
-
 def filter_hits_by_angle_for_three_views(mesh, rays_list, ans_list, min_angle_deg=0,
-    projector_max_angle_deg=80, camera_max_angle_deg=70):
+    projector_max_angle_deg=65, camera_max_angle_deg=65):
 
 
     valid_hits_per_view = []
@@ -591,6 +478,39 @@ def filter_hits_by_angle_for_three_views(mesh, rays_list, ans_list, min_angle_de
         valid_hits_per_view.append(np.array(valid_hits))
 
     return valid_hits_per_view
+
+
+# def filter_hits_by_angle_and_distance(mesh, rays_list, ans_list, viewpoint,
+#                                       min_angle_deg=0, projector_max_angle_deg=85, camera_max_angle_deg=80,
+#                                       min_depth=440, max_depth=520):
+#     valid_hits_per_view = []
+#
+#     for i, (rays, ans) in enumerate(zip(rays_list, ans_list)):
+#         if i == 0:  # 特殊处理projector
+#             min_cos_angle = np.cos(np.radians(min_angle_deg))
+#             max_cos_angle = np.cos(np.radians(projector_max_angle_deg))
+#         else:  # 其他视锥使用一般条件
+#             min_cos_angle = np.cos(np.radians(min_angle_deg))
+#             max_cos_angle = np.cos(np.radians(camera_max_angle_deg))
+#
+#         hit_indices = ans['primitive_ids'][ans['t_hit'].isfinite()].numpy()  # 获取有效击中的面片索引
+#         hit_normals = np.asarray(mesh.triangle_normals)[hit_indices]  # 获取被击中的面片的法线向量
+#         ray_directions = rays[ans['t_hit'].isfinite()][:, 3:6].numpy()  # 获取有效击中的射线方向，仅取方向部分
+#         hit_points = rays[ans['t_hit'].isfinite()][:, :3] + rays[ans['t_hit'].isfinite()][:, 3:6] * ans['t_hit'][
+#             ans['t_hit'].isfinite()].reshape((-1, 1))
+#
+#         valid_hits = []
+#         for idx, (normal, direction, point) in enumerate(zip(hit_normals, ray_directions, hit_points)):
+#             cos_angle = np.dot(normal, -direction) / (np.linalg.norm(normal) * np.linalg.norm(direction))
+#             distance = np.linalg.norm(viewpoint - point)
+#
+#             # 检查夹角是否在允许的范围内以及距离是否在景深范围内
+#             if min_cos_angle >= cos_angle >= max_cos_angle and min_depth <= distance <= max_depth:
+#                 valid_hits.append(hit_indices[idx])
+#
+#         valid_hits_per_view.append(np.array(valid_hits))
+#
+#     return valid_hits_per_view
 
 
 def get_unique_valid_hits(valid_hit_triangle_indices_per_view):
@@ -702,3 +622,57 @@ def visualize_camera_frustums(width_px, height_px, intrinsic_matrix, extrinsic_m
     camera_right = o3d.geometry.LineSet.create_camera_visualization(width_px, height_px, intrinsic_matrix, extrinsic_matrix_right, scale=1.0)
 
     return camera_center, camera_left, camera_right
+
+
+
+
+
+
+
+def filter_triangles_by_depth(viewpoint, apex, mesh, hit_triangle_indices, min_depth, max_depth):
+    """
+    过滤掉不在指定景深范围内的三角面片。
+
+    参数:
+    - viewpoint: 视点的位置，形式为[x, y, z]。
+    - mesh: 包含三角面片的网格。
+    - hit_triangle_indices: 初始选中的三角面片索引集合。
+    - min_depth: 最小景深值。
+    - max_depth: 最大景深值。
+    - apex: 焦点所在位置，形式为[x, y, z]。
+
+    返回:
+    - filtered_indices: 过滤后的三角面片索引集合。
+    """
+    triangles = np.asarray(mesh.triangles)
+    vertices = np.asarray(mesh.vertices)
+    optical_axis = apex - viewpoint  # 光轴方向
+    optical_axis_norm = np.linalg.norm(optical_axis)
+    optical_axis_normalized = optical_axis / optical_axis_norm  # 单位化光轴向量
+
+    filtered_indices = set()
+
+    for index in hit_triangle_indices:
+        triangle = triangles[index]
+        v1, v2, v3 = vertices[triangle[0]], vertices[triangle[1]], vertices[triangle[2]]
+        centroid = (v1 + v2 + v3) / 3
+        vector_to_centroid = centroid - viewpoint
+        projected_distance = np.dot(vector_to_centroid, optical_axis_normalized)  # 投影到光轴上的距离
+
+        # 调整投影距离，使其相对于最佳对焦平面
+        effective_distance = abs(projected_distance)  # 最佳对焦平面距视点480mm
+
+        if min_depth <= effective_distance <= max_depth:
+            filtered_indices.add(index)
+
+    return filtered_indices
+
+
+def create_point_cloud_from_hits(mesh, rays, ans):
+    # 提取射线击中的点
+    hits = ans['t_hit'].isfinite()  # 有效交点的布尔索引
+    points = rays[0][hits, :3] + rays[1][hits, :3] * ans['t_hit'][hits].reshape((-1, 1))
+    # 创建点云
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(points.numpy())
+    return point_cloud
